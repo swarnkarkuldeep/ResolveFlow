@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from resolveflow.context import SystemContext
 from resolveflow.db import system_engine
+from resolveflow.notifications import service as notif
 from resolveflow.rules.schema import RuleDefinition, canonical_hash
 from resolveflow.security import hash_password
 from resolveflow.sla import service as sla_service
@@ -527,6 +528,19 @@ def seed_demo(engine: Engine) -> SeedSummary:
                         "at": last + timedelta(minutes=3),
                     },
                 )
+            if status in ("resolved", "closed"):
+                last += timedelta(minutes=rng.randint(10, 240))
+                _audit(
+                    s,
+                    ws,
+                    "user",
+                    assignee or user_ids["owner"],
+                    "ticket.updated",
+                    tid,
+                    last,
+                    before={"status": "open"},
+                    after={"status": status},
+                )
             for tag in rng.sample(TAGS, rng.choice([0, 0, 1, 1, 2])):
                 s.execute(
                     text(
@@ -570,6 +584,19 @@ def seed_demo(engine: Engine) -> SeedSummary:
             if tid != source:
                 sla_service.backfill_events(sctx, tid)
         sla_service.recompute(sctx, target)
+        for n, kind, title in (
+            (3, "assigned", "Assigned to you: ticket #4"),
+            (5, "customer_reply", "New reply on ticket #6"),
+        ):
+            notif.notify(
+                sctx,
+                [user_ids["agent"]],
+                kind,
+                ticket_ids[n],
+                title,
+                subject_by_idx[n],
+                f"seed:{n}",
+            )
         return _summary(s, ws)
 
 
