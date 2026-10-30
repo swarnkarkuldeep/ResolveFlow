@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resolveflow"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "sqlalchemy>=2.0,<3",
+  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.13,<2",
+  "celery[redis]>=5.4,<6",
+  "redis>=5.0,<7",
+  "pydantic-settings>=2.4,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pyyaml>=6",
+  "httpx>=0.27",
+  "testcontainers[postgres,redis]>=4.8",
+  "ruff>=0.6",
+  "mypy>=1.11",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+  "ignore::DeprecationWarning:testcontainers.*",
+  "ignore::DeprecationWarning:starlette.*",
+  "ignore::DeprecationWarning:fastapi.*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+plugins = []
+
+[[tool.mypy.overrides]]
+module = "resolveflow.tasks.*"
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = "celery.*"
+ignore_missing_imports = true

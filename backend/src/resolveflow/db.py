@@ -1,0 +1,17 @@
+from collections.abc import Iterator
+from functools import lru_cache
+
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from resolveflow.config import get_settings
+
+
+@lru_cache
+def engine_for(url: str) -> Engine:
+    return create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 2})
+
+
+def get_session() -> Iterator[Session]:
+    with sessionmaker(engine_for(get_settings().database_url))() as session:
+        yield session
