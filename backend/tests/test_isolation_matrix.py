@@ -90,6 +90,13 @@ def test_every_workspace_table_has_forced_rls(migrated_env: None, postgres_url: 
         "sla_policies",
         "ticket_sla",
         "sla_events",
+        "teams",
+        "team_members",
+        "rules",
+        "rule_versions",
+        "rule_tests",
+        "rule_executions",
+        "notifications",
     } <= names
     assert all(r[1] and r[2] for r in rows), [r[0] for r in rows if not (r[1] and r[2])]
 

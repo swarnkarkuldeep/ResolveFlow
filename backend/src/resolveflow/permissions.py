@@ -12,7 +12,17 @@ _TICKET = frozenset(
     }
 )
 _ADMIN = frozenset(
-    {"user:read", "user:invite", "user:manage", "audit:read", "settings:read", "settings:update"}
+    {
+        "user:read",
+        "user:invite",
+        "user:manage",
+        "audit:read",
+        "settings:read",
+        "settings:update",
+        "rule:read",
+        "rule:manage",
+        "team:manage",
+    }
 )
 
 PERMS: dict[str, frozenset[str]] = {

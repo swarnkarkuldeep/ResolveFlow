@@ -7,6 +7,7 @@ from resolveflow.api import auth as auth_api
 from resolveflow.api import members as members_api
 from resolveflow.api import public as public_api
 from resolveflow.api import sla as sla_api
+from resolveflow.api import teams as teams_api
 from resolveflow.api import tickets as tickets_api
 from resolveflow.api import webhooks as webhooks_api
 from resolveflow.config import get_settings
@@ -63,4 +64,5 @@ app.include_router(members_api.router)
 app.include_router(public_api.router)
 app.include_router(sla_api.router)
 app.include_router(tickets_api.router)
+app.include_router(teams_api.router)
 app.include_router(webhooks_api.router)
