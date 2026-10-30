@@ -1,0 +1,52 @@
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import type { ReactNode } from 'react'
+
+import { AcceptInvitePage } from '../features/auth/AcceptInvitePage'
+import { LoginPage } from '../features/auth/LoginPage'
+import { SignupPage } from '../features/auth/SignupPage'
+import { AuditPage } from '../features/audit/AuditPage'
+import { ChannelsPage } from '../features/channels/ChannelsPage'
+import { InboxPage } from '../features/inbox/InboxPage'
+import { PeoplePage } from '../features/people/PeoplePage'
+import { PublicFormPage } from '../features/publicform/PublicFormPage'
+import { useAuth } from './auth'
+import { Shell } from './Shell'
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { me, isLoading } = useAuth()
+  const location = useLocation()
+  if (isLoading) return <p role="status" className="p-6 text-slate">Loading…</p>
+  if (!me) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
+  return <>{children}</>
+}
+
+function RequirePermission({ permission, children }: { permission: string; children: ReactNode }) {
+  const { can } = useAuth()
+  if (!can(permission)) return <Navigate to="/inbox" replace />
+  return <>{children}</>
+}
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
+      <Route path="/form/:slug" element={<PublicFormPage />} />
+      <Route
+        element={
+          <RequireAuth>
+            <Shell />
+          </RequireAuth>
+        }
+      >
+        <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/inbox/:ticketId" element={<InboxPage />} />
+        <Route path="/people" element={<RequirePermission permission="user:read"><PeoplePage /></RequirePermission>} />
+        <Route path="/channels" element={<RequirePermission permission="settings:read"><ChannelsPage /></RequirePermission>} />
+        <Route path="/audit" element={<RequirePermission permission="audit:read"><AuditPage /></RequirePermission>} />
+      </Route>
+      <Route path="*" element={<Navigate to="/inbox" replace />} />
+    </Routes>
+  )
+}
