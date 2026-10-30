@@ -8,6 +8,11 @@ x-app-env: &app-env
   REDIS_URL: redis://redis:6379/0
   SMTP_HOST: mailpit
   SMTP_PORT: "1025"
+  EMAIL_PROVIDER: smtp
+  SEED_DEMO: "1"
+  SIMULATE_INBOUND_ENABLED: "1"
+  POSTMARK_WEBHOOK_SECRET: ${POSTMARK_WEBHOOK_SECRET:-dev-webhook-secret}
+  PUBLIC_BASE_URL: http://localhost:${WEB_PORT:-3000}
 
 services:
   db:

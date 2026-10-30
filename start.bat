@@ -58,6 +58,7 @@ goto wait_api
 echo [4/4] Ready.
 echo   App:     http://localhost:%WEB_PORT%
 echo   Mailpit: http://localhost:8025 (see MAILPIT_UI_PORT in .env)
+echo   Demo login: owner@brightwork.test / resolveflow-demo
 start "" "http://localhost:%WEB_PORT%"
 exit /b 0
 
