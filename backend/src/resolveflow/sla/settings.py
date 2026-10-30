@@ -84,10 +84,11 @@ def _t(value: str) -> time:
 
 def normalized(body: SlaSettingsIn) -> dict[str, Any]:
     sched: dict[str, list[Range]] = {str(k): v for k, v in body.schedule.items()}
+    tgt: dict[str, Target] = {str(k): v for k, v in body.targets.items()}
     return {
         "enabled": body.enabled,
         "business_hours_only": body.business_hours_only,
-        "targets": {p: body.targets[p].model_dump() for p in PRIORITIES},
+        "targets": {p: tgt[p].model_dump() for p in PRIORITIES},
         "timezone": body.timezone,
         "schedule": {d: [r.model_dump() for r in sched.get(d, [])] for d in DAYS},
         "holidays": sorted({h.isoformat() for h in body.holidays}),
