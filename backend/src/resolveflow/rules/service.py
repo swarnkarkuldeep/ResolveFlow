@@ -9,6 +9,7 @@ from sqlalchemy import text
 from resolveflow import audit
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
+from resolveflow.rules.engine import RuleInput
 from resolveflow.rules.schema import (
     AssignAction,
     EscalateAction,
@@ -122,6 +123,28 @@ def _add_version(ctx: ServiceCtx, rule_id: uuid.UUID, version: int, defn: RuleDe
         },
     )
     return h
+
+
+def load_active_rules(ctx: ServiceCtx, exclude: uuid.UUID | None = None) -> list[RuleInput]:
+    """Active rules at their active versions, in execution order."""
+    rows = ctx.session.execute(
+        text(
+            "select r.id, r.name, r.position, v.definition from rules r "
+            "join rule_versions v on v.rule_id = r.id and v.version = r.active_version "
+            "where r.workspace_id = :w and r.status = 'active' "
+            "and (cast(:ex as uuid) is null or r.id <> cast(:ex as uuid)) order by r.position, r.created_at"
+        ),
+        {"w": ctx.ws, "ex": exclude},
+    ).all()
+    return [
+        RuleInput(
+            id=str(r.id),
+            name=r.name,
+            position=r.position,
+            definition=RuleDefinition.model_validate(r.definition),
+        )
+        for r in rows
+    ]
 
 
 def get_rule_row(ctx: ServiceCtx, rule_id: uuid.UUID) -> dict[str, Any]:

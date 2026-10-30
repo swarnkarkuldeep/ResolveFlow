@@ -1,11 +1,12 @@
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from resolveflow.api.deps import RequestContext, require
 from resolveflow.rules import service as svc
+from resolveflow.rules import tester
 from resolveflow.rules.schema import RuleDefinition
 
 router = APIRouter(prefix="/api")
@@ -23,6 +24,19 @@ class RuleUpdate(BaseModel):
 
 class ActivateIn(BaseModel):
     version: int | None = Field(default=None, ge=1)
+
+
+class DryRunIn(BaseModel):
+    definition: RuleDefinition
+    facts: tester.FactsIn
+    include_active_rules: bool = False
+
+
+class RecordTestIn(BaseModel):
+    facts: tester.FactsIn
+    expectation: Literal["match", "no_match"]
+    version: int | None = Field(default=None, ge=1)
+    include_active_rules: bool = False
 
 
 class ReorderIn(BaseModel):
@@ -48,6 +62,25 @@ def reorder(
     body: ReorderIn, ctx: RequestContext = Depends(require("rule:manage"))
 ) -> list[dict[str, Any]]:
     out = svc.reorder(ctx, body.ids)
+    ctx.commit()
+    return out
+
+
+@router.post("/rules/test")
+def dry_run(
+    body: DryRunIn, ctx: RequestContext = Depends(require("rule:manage"))
+) -> dict[str, Any]:
+    """Evaluates a draft against a synthetic ticket. Writes nothing."""
+    return tester.dry_run(ctx, body.definition, body.facts, body.include_active_rules)
+
+
+@router.post("/rules/{rule_id}/tests")
+def record_test(
+    rule_id: uuid.UUID, body: RecordTestIn, ctx: RequestContext = Depends(require("rule:manage"))
+) -> dict[str, Any]:
+    out = tester.record_test(
+        ctx, rule_id, body.version, body.facts, body.expectation, body.include_active_rules
+    )
     ctx.commit()
     return out
 
