@@ -8,6 +8,8 @@ import { AuditPage } from '../features/audit/AuditPage'
 import { ChannelsPage } from '../features/channels/ChannelsPage'
 import { InboxPage } from '../features/inbox/InboxPage'
 import { PeoplePage } from '../features/people/PeoplePage'
+import { RuleEditorPage } from '../features/rules/RuleEditorPage'
+import { RulesPage } from '../features/rules/RulesPage'
 import { PublicFormPage } from '../features/publicform/PublicFormPage'
 import { SlaSettingsPage } from '../features/sla/SlaSettingsPage'
 import { useAuth } from './auth'
@@ -45,6 +47,9 @@ export function AppRoutes() {
         <Route path="/inbox/:ticketId" element={<InboxPage />} />
         <Route path="/people" element={<RequirePermission permission="user:read"><PeoplePage /></RequirePermission>} />
         <Route path="/channels" element={<RequirePermission permission="settings:read"><ChannelsPage /></RequirePermission>} />
+        <Route path="/automations" element={<RequirePermission permission="rule:read"><RulesPage /></RequirePermission>} />
+        <Route path="/automations/new" element={<RequirePermission permission="rule:read"><RuleEditorPage /></RequirePermission>} />
+        <Route path="/automations/:id" element={<RequirePermission permission="rule:read"><RuleEditorPage /></RequirePermission>} />
         <Route path="/service-levels" element={<RequirePermission permission="settings:read"><SlaSettingsPage /></RequirePermission>} />
         <Route path="/audit" element={<RequirePermission permission="audit:read"><AuditPage /></RequirePermission>} />
       </Route>

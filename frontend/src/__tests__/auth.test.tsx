@@ -91,7 +91,7 @@ describe('navigation by permission', () => {
   }
 
   it('shows everything to an owner', async () => {
-    expect(await navLinks('owner')).toEqual(['Inbox', 'People', 'Channels', 'Service levels', 'Audit log'])
+    expect(await navLinks('owner')).toEqual(['Inbox', 'People', 'Channels', 'Automations', 'Service levels', 'Audit log'])
   })
   it('hides admin pages from a viewer', async () => {
     expect(await navLinks('viewer')).toEqual(['Inbox', 'People'])
