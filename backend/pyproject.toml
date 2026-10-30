@@ -55,3 +55,7 @@ plugins = []
 [[tool.mypy.overrides]]
 module = "resolveflow.tasks.*"
 disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = "celery.*"
+ignore_missing_imports = true
