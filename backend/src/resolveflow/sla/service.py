@@ -137,9 +137,22 @@ def derive(events: list[Any], created_at: datetime) -> Derived:
     return Derived(start_at, res_start, pauses, fr_met_at, res_met_at)
 
 
-def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None) -> None:
-    """Rebuild this ticket's `ticket_sla` row from its events (idempotent)."""
-    now = now or utcnow()
+@dataclass
+class Computed:
+    cfg: Config
+    d: Derived
+    priority: str
+    fr_target: int | None
+    res_target: int | None
+    fr_due: datetime | None
+    res_due: datetime | None
+    fr_warn: datetime | None
+    res_warn: datetime | None
+    paused_at: datetime | None
+
+
+def compute(ctx: ServiceCtx, ticket_id: uuid.UUID) -> Computed:
+    """Pure derivation of a ticket's clocks from its events and the workspace policy."""
     ticket = ctx.session.execute(
         text("select priority, created_at from tickets where id = :t and workspace_id = :w"),
         {"t": ticket_id, "w": ctx.ws},
@@ -150,6 +163,34 @@ def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None
         {"t": ticket_id},
     ).all()
     d = derive(list(events), ticket.created_at)
+    target = cfg.targets.get(ticket.priority) if cfg.enabled else None
+    fr_target = target["first_response_minutes"] if target else None
+    res_target = target["resolution_minutes"] if target else None
+    cal = cfg.clock_calendar
+    paused_at = d.pauses[-1][0] if d.pauses and d.pauses[-1][1] is None else None
+    return Computed(
+        cfg=cfg,
+        d=d,
+        priority=ticket.priority,
+        fr_target=fr_target,
+        res_target=res_target,
+        fr_due=compute_due(d.start_at, fr_target, cal, d.pauses) if fr_target else None,
+        res_due=compute_due(d.res_start, res_target, cal, d.pauses) if res_target else None,
+        fr_warn=threshold_instant(d.start_at, fr_target, WARN_FRACTION, cal, d.pauses)
+        if fr_target
+        else None,
+        res_warn=threshold_instant(d.res_start, res_target, WARN_FRACTION, cal, d.pauses)
+        if res_target
+        else None,
+        paused_at=paused_at,
+    )
+
+
+def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None) -> None:
+    """Rebuild this ticket's `ticket_sla` row from its events (idempotent)."""
+    now = now or utcnow()
+    c = compute(ctx, ticket_id)
+    d = c.d
     flags = ctx.session.execute(
         text(
             "select fr_warned_at, fr_breached_at, res_warned_at, res_breached_at "
@@ -158,31 +199,19 @@ def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None
         {"t": ticket_id},
     ).first()
 
-    target = cfg.targets.get(ticket.priority) if cfg.enabled else None
-    fr_target = target["first_response_minutes"] if target else None
-    res_target = target["resolution_minutes"] if target else None
-    cal = cfg.clock_calendar
-    paused_at = d.pauses[-1][0] if d.pauses and d.pauses[-1][1] is None else None
-
-    fr_due = compute_due(d.start_at, fr_target, cal, d.pauses) if fr_target else None
-    res_due = compute_due(d.res_start, res_target, cal, d.pauses) if res_target else None
-
-    candidates: list[datetime] = []
-    if paused_at is None:
-        if fr_target and d.fr_met_at is None:
+    candidates: list[datetime | None] = []
+    if c.paused_at is None:
+        if c.fr_target and d.fr_met_at is None:
             if not (flags and flags.fr_warned_at):
-                w = threshold_instant(d.start_at, fr_target, WARN_FRACTION, cal, d.pauses)
-                if w:
-                    candidates.append(w)
-            if not (flags and flags.fr_breached_at) and fr_due:
-                candidates.append(fr_due)
-        if res_target and d.res_met_at is None:
+                candidates.append(c.fr_warn)
+            if not (flags and flags.fr_breached_at):
+                candidates.append(c.fr_due)
+        if c.res_target and d.res_met_at is None:
             if not (flags and flags.res_warned_at):
-                w = threshold_instant(d.res_start, res_target, WARN_FRACTION, cal, d.pauses)
-                if w:
-                    candidates.append(w)
-            if not (flags and flags.res_breached_at) and res_due:
-                candidates.append(res_due)
+                candidates.append(c.res_warn)
+            if not (flags and flags.res_breached_at):
+                candidates.append(c.res_due)
+    upcoming = [x for x in candidates if x is not None]
 
     ctx.session.execute(
         text(
@@ -199,16 +228,16 @@ def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None
         {
             "t": ticket_id,
             "w": ctx.ws,
-            "v": cfg.version,
+            "v": c.cfg.version,
             "s": d.start_at,
-            "frt": fr_target,
-            "rst": res_target,
-            "frd": fr_due,
-            "rsd": res_due,
+            "frt": c.fr_target,
+            "rst": c.res_target,
+            "frd": c.fr_due,
+            "rsd": c.res_due,
             "frm": d.fr_met_at,
             "rsm": d.res_met_at,
-            "p": paused_at,
-            "n": min(candidates) if candidates else None,
+            "p": c.paused_at,
+            "n": min(upcoming) if upcoming else None,
             "now": now,
         },
     )
