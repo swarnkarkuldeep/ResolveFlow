@@ -61,6 +61,9 @@ def test_seed_creates_a_realistic_workspace(seeded) -> None:  # type: ignore[no-
         "sla clocks": "select count(*) from ticket_sla where workspace_id = :w and start_at is not null",
         "sla met": "select count(*) from ticket_sla where workspace_id = :w and fr_met_at is not null",
         "sla policy": "select count(*) from sla_policies where workspace_id = :w",
+        "teams": "select count(*) from teams where workspace_id = :w",
+        "team members": "select count(*) from team_members where workspace_id = :w",
+        "live rules": "select count(*) from rules where workspace_id = :w and status = 'active'",
     }.items():
         assert _count(url, sql, w=ws) > 0, label
 
@@ -98,3 +101,38 @@ def test_seeded_users_can_sign_in_and_see_only_their_workspace(
         == 200
     )
     assert viewer.get("/api/auth/me").json()["role"] == "viewer"
+
+
+def test_seeded_rules_are_tested_live_and_actually_run(
+    seeded, client_factory: ClientFactory
+) -> None:  # type: ignore[no-untyped-def]
+    summary, url = seeded
+    with engine_for(url).connect() as conn:
+        untested = _count(
+            url,
+            "select count(*) from rules r join rule_versions v on v.rule_id = r.id and v.version = r.active_version "
+            "where r.workspace_id = :w and r.status = 'active' and not exists (select 1 from rule_tests t "
+            "where t.rule_id = r.id and t.content_hash = v.content_hash and t.passed and t.expectation = 'match')",
+            w=summary.workspace_id,
+        )
+    assert conn is not None and untested == 0
+    client = TestClient(app)
+    assert (
+        client.post(
+            "/api/auth/login", json={"email": summary.users["owner"], "password": DEMO_PASSWORD}
+        ).status_code
+        == 200
+    )
+    csrf = client.get("/api/auth/me").json()["csrf_token"]
+    r = client.post(
+        "/api/tickets",
+        json={
+            "subject": "Refund for my order",
+            "body": "Please refund me",
+            "requester_email": "demo-refund@customer.test",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert r.status_code == 200
+    got = client.get(f"/api/tickets/{r.json()['id']}").json()
+    assert got["priority"] == "high" and "refund" in got["tags"] and got["assignee"] is not None

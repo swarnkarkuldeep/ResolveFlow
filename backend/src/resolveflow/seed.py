@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from resolveflow.context import SystemContext
 from resolveflow.db import system_engine
+from resolveflow.rules.schema import RuleDefinition, canonical_hash
 from resolveflow.security import hash_password
 from resolveflow.sla import service as sla_service
 from resolveflow.sla.defaults import create_defaults
@@ -217,6 +218,114 @@ def _audit(
     )
 
 
+def _seed_rules(s: Session, ws: uuid.UUID, user_ids: dict[str, uuid.UUID]) -> None:
+    """A Support team and three tested, live automations that show off the rules engine."""
+    team = s.execute(
+        text("insert into teams (workspace_id, name) values (:w, 'Support') returning id"),
+        {"w": ws},
+    ).scalar_one()
+    for role in ("agent", "admin"):
+        s.execute(
+            text("insert into team_members (team_id, workspace_id, user_id) values (:t, :w, :u)"),
+            {"t": team, "w": ws, "u": user_ids[role]},
+        )
+    definitions = [
+        (
+            "Refund requests",
+            {
+                "trigger": {"event": "ticket.created"},
+                "conditions": {
+                    "op": "and",
+                    "items": [
+                        {
+                            "field": "subject",
+                            "operator": "contains_any",
+                            "value": ["refund", "money back", "chargeback"],
+                        }
+                    ],
+                },
+                "actions": [
+                    {"type": "set_priority", "value": "high"},
+                    {"type": "add_tag", "tag": "refund"},
+                    {"type": "assign", "target": "round_robin", "team_id": str(team)},
+                ],
+            },
+        ),
+        (
+            "Urgent follow-ups",
+            {
+                "trigger": {"event": "message.received"},
+                "conditions": {
+                    "op": "and",
+                    "items": [
+                        {
+                            "field": "body",
+                            "operator": "contains_any",
+                            "value": ["urgent", "asap", "immediately"],
+                        }
+                    ],
+                },
+                "actions": [
+                    {"type": "set_priority", "value": "urgent"},
+                    {
+                        "type": "notify",
+                        "target": "owners_admins",
+                        "message": "A customer marked their ticket as urgent",
+                    },
+                ],
+            },
+        ),
+        (
+            "Escalate missed deadlines",
+            {
+                "trigger": {"event": "sla.threshold", "level": "breach"},
+                "conditions": {
+                    "op": "and",
+                    "items": [{"field": "priority", "operator": "in", "value": ["high", "urgent"]}],
+                },
+                "actions": [
+                    {
+                        "type": "escalate",
+                        "assign": {"target": "user", "user_id": str(user_ids["admin"])},
+                        "message": "A high-priority ticket missed its deadline",
+                    }
+                ],
+            },
+        ),
+    ]
+    for position, (name, raw) in enumerate(definitions, start=1):
+        defn = RuleDefinition.model_validate(raw)
+        h = canonical_hash(defn)
+        rule_id = s.execute(
+            text(
+                "insert into rules (workspace_id, name, position, status, active_version, current_version) "
+                "values (:w, :n, :p, 'active', 1, 1) returning id"
+            ),
+            {"w": ws, "n": name, "p": position},
+        ).scalar_one()
+        s.execute(
+            text(
+                "insert into rule_versions (workspace_id, rule_id, version, definition, content_hash, created_by) "
+                "values (:w, :r, 1, cast(:d as jsonb), :h, :u)"
+            ),
+            {
+                "w": ws,
+                "r": rule_id,
+                "d": json.dumps(defn.model_dump(mode="json")),
+                "h": h,
+                "u": user_ids["owner"],
+            },
+        )
+        s.execute(
+            text(
+                "insert into rule_tests (workspace_id, rule_id, version, content_hash, expectation, matched, "
+                "passed, context, result, created_by) values (:w, :r, 1, :h, 'match', true, true, "
+                "cast('{}' as jsonb), cast('{}' as jsonb), :u)"
+            ),
+            {"w": ws, "r": rule_id, "h": h, "u": user_ids["owner"]},
+        )
+
+
 def seed_demo(engine: Engine) -> SeedSummary:
     rng = random.Random(42)  # noqa: S311 - deterministic demo data, not security
     now = datetime.now(UTC)
@@ -248,6 +357,7 @@ def seed_demo(engine: Engine) -> SeedSummary:
                 text("insert into memberships (workspace_id, user_id, role) values (:w, :u, :r)"),
                 {"w": ws, "u": uid, "r": role},
             )
+        _seed_rules(s, ws, user_ids)
         customer_ids: list[uuid.UUID] = []
         for name, email in CUSTOMERS:
             customer_ids.append(
