@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy import text
@@ -26,7 +27,15 @@ class RequestContext:
     csrf_token: str
     session_id: uuid.UUID
     session: Session
-    request_id: str
+    request_id: str | None
+
+    @property
+    def actor_type(self) -> Literal["user"]:
+        return "user"
+
+    @property
+    def actor_id(self) -> uuid.UUID:
+        return self.user_id
 
     def commit(self) -> None:
         self.session.commit()
