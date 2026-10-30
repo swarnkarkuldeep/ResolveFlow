@@ -12,6 +12,7 @@ from resolveflow.db import system_engine
 from resolveflow.email.inbound import InboundMessage
 from resolveflow.email.threading import match_ticket, parse_recipients
 from resolveflow.services import tickets as ticket_svc
+from resolveflow.sla import service as sla
 
 Status = Literal["created", "appended", "duplicate", "ignored"]
 
@@ -92,11 +93,15 @@ def ingest_inbound(msg: InboundMessage) -> IngestResult:
 def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> IngestResult:
     s = ctx.session
     row = s.execute(
-        text("select merged_into_id from tickets where id = :i and workspace_id = :w"),
+        text("select merged_into_id from tickets where id = :i and workspace_id = :w for update"),
         {"i": ticket_id, "w": ctx.ws},
     ).first()
     if row and row.merged_into_id:
         ticket_id = row.merged_into_id  # replies to a merged ticket land on the surviving one
+        s.execute(
+            text("select 1 from tickets where id = :i and workspace_id = :w for update"),
+            {"i": ticket_id, "w": ctx.ws},
+        )
     customer_id = s.execute(
         text(
             "insert into customers (workspace_id, email, name) values (:w, :e, :n) "
@@ -123,6 +128,10 @@ def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> In
     ).first()
     if not inserted:
         return IngestResult("duplicate")
+    old_status = s.execute(
+        text("select status from tickets where id = :t and workspace_id = :w for update"),
+        {"t": ticket_id, "w": ctx.ws},
+    ).scalar_one()
     s.execute(
         text(
             "update tickets set last_activity_at = now(), "
@@ -131,6 +140,8 @@ def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> In
         ),
         {"t": ticket_id, "w": ctx.ws},
     )
+    new_status = "open" if old_status in ("resolved", "pending") else old_status
+    sla.on_status_changed(ctx, ticket_id, old_status, new_status)
     audit.record(
         s,
         workspace_id=ctx.ws,

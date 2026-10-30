@@ -1,4 +1,5 @@
 import json
+import time
 import uuid
 
 import httpx
@@ -208,13 +209,23 @@ def test_smtp_provider_delivers_to_real_mailpit() -> None:
             smtp_host=host,
             smtp_port=smtp_port,
         )
-        SmtpProvider(s).send(
-            to="cust@example.test",
-            subject="Re: Leaking tap",
-            text="We will be there Tuesday.",
-            headers={"In-Reply-To": "<abc@example.test>"},
-            message_id="<m1@inbound.test>",
-        )
+        # The container logs "accessible via" slightly before SMTP accepts connections.
+        last: Exception | None = None
+        for _ in range(15):
+            try:
+                SmtpProvider(s).send(
+                    to="cust@example.test",
+                    subject="Re: Leaking tap",
+                    text="We will be there Tuesday.",
+                    headers={"In-Reply-To": "<abc@example.test>"},
+                    message_id="<m1@inbound.test>",
+                )
+                last = None
+                break
+            except OSError as exc:
+                last = exc
+                time.sleep(1)
+        assert last is None, last
         msgs = httpx.get(f"http://{host}:{ui_port}/api/v1/messages", timeout=10).json()
     assert msgs["total"] == 1
     assert msgs["messages"][0]["Subject"] == "Re: Leaking tap"

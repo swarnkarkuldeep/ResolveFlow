@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { relativeTime } from '../../lib/format'
 import type { TicketItem } from '../../lib/types'
 import { Avatar, PriorityMark, StatusMark } from '../../ui'
+import { SlaBadge } from '../sla/SlaBadge'
 
 export function QueueRow({
   ticket,
@@ -65,6 +66,11 @@ export function QueueRow({
           </span>
           <span className="block truncate text-[14px]">{ticket.subject}</span>
           {ticket.snippet && <span className="block truncate text-[13px] text-slate">{ticket.snippet}</span>}
+          {ticket.sla && ['running', 'at_risk', 'breached', 'paused'].includes(ticket.sla.state) && (
+            <span className="mt-0.5 block">
+              <SlaBadge sla={ticket.sla} />
+            </span>
+          )}
         </Link>
         <div className="flex flex-col items-end justify-between">
           <time dateTime={ticket.last_activity_at} className="tabular text-[12px] text-slate">

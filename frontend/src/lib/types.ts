@@ -11,6 +11,43 @@ export interface Me {
   csrf_token: string
 }
 
+export type SlaState = 'none' | 'running' | 'paused' | 'met' | 'at_risk' | 'breached'
+
+export interface SlaMetric {
+  due_at: string | null
+  met_at: string | null
+  state: SlaState
+}
+
+export interface SlaSummary {
+  state: SlaState
+  next_due_at: string | null
+  first_response: SlaMetric
+  resolution: SlaMetric
+}
+
+export interface SlaExplain {
+  policy: {
+    enabled: boolean
+    business_hours_only: boolean
+    priority: Priority
+    targets: { first_response_minutes: number; resolution_minutes: number } | null
+  }
+  calendar: { timezone: string; schedule_text: string; holidays: number }
+  state: SlaState
+  metrics: {
+    key: 'first_response' | 'resolution'
+    name: string
+    target_minutes: number | null
+    due_at: string | null
+    met_at: string | null
+    state: SlaState
+    elapsed_minutes: number | null
+    paused_minutes: number
+  }[]
+  events: { at: string; kind: string; text: string }[]
+}
+
 export interface TicketItem {
   id: string
   number: number
@@ -26,6 +63,7 @@ export interface TicketItem {
   created_at: string
   possible_duplicate_of: string | null
   merged_into_id: string | null
+  sla?: SlaSummary
 }
 
 export interface Message {

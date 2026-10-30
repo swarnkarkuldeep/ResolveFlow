@@ -132,7 +132,7 @@ export function InboxPage() {
             </Button>
             </div>
           </div>
-          <div role="tablist" aria-label="Views" className="flex gap-1">
+          <div role="tablist" aria-label="Views" className="flex flex-wrap gap-x-0.5 gap-y-1">
             {VIEWS.map((v) => (
               <button
                 key={v.id}
@@ -140,7 +140,7 @@ export function InboxPage() {
                 type="button"
                 aria-selected={v.id === view.id}
                 onClick={() => setParam('view', v.id === 'open' ? null : v.id)}
-                className={`rounded-control px-2.5 py-1 text-[14px] ${
+                className={`rounded-control px-2 py-1 text-[14px] ${
                   v.id === view.id ? 'bg-paper font-medium text-ink shadow-[inset_0_0_0_1px_var(--line)]' : 'text-slate hover:text-ink'
                 }`}
               >

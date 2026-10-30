@@ -79,7 +79,18 @@ def test_every_workspace_table_has_forced_rls(migrated_env: None, postgres_url: 
             )
         ).all()
     names = {r[0] for r in rows}
-    assert {"tickets", "messages", "customers", "audit_log", "memberships", "invitations"} <= names
+    assert {
+        "tickets",
+        "messages",
+        "customers",
+        "audit_log",
+        "memberships",
+        "invitations",
+        "business_calendars",
+        "sla_policies",
+        "ticket_sla",
+        "sla_events",
+    } <= names
     assert all(r[1] and r[2] for r in rows), [r[0] for r in rows if not (r[1] and r[2])]
 
 

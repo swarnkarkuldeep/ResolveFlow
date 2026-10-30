@@ -1,4 +1,4 @@
-import { Inbox, LogOut, Moon, Plug, ScrollText, Sun, Users } from 'lucide-react'
+import { Inbox, LogOut, Moon, Plug, ScrollText, Sun, Timer, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
@@ -11,6 +11,7 @@ const ITEMS = [
   { to: '/inbox', label: 'Inbox', icon: Inbox, perm: null },
   { to: '/people', label: 'People', icon: Users, perm: 'user:read' },
   { to: '/channels', label: 'Channels', icon: Plug, perm: 'settings:read' },
+  { to: '/service-levels', label: 'Service levels', icon: Timer, perm: 'settings:read' },
   { to: '/audit', label: 'Audit log', icon: ScrollText, perm: 'audit:read' },
 ] as const
 

@@ -29,6 +29,11 @@ function messageFrom(status: number, body: unknown): { code: string; message: st
     if (d.message) return { code: d.code ?? 'error', message: d.message }
   }
   if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { msg?: string; loc?: (string | number)[] }
+    const msg = (first.msg ?? '').replace(/^Value error, /, '')
+    const where = (first.loc ?? []).filter((x) => x !== 'body').join(' › ')
+    const custom = (first.msg ?? '').startsWith('Value error, ')
+    if (msg) return { code: 'invalid', message: custom || !where ? msg : `${where}: ${msg}` }
     return { code: 'invalid', message: 'Some fields need attention. Check what you entered and try again.' }
   }
   if (status >= 500) return { code: 'server_error', message: 'Something went wrong on our side. Try again in a moment.' }

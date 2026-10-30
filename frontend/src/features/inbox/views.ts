@@ -1,6 +1,6 @@
 import type { Priority, TicketItem } from '../../lib/types'
 
-export type ViewId = 'mine' | 'unassigned' | 'open' | 'done'
+export type ViewId = 'mine' | 'unassigned' | 'open' | 'at_risk' | 'breached' | 'done'
 
 export interface View {
   id: ViewId
@@ -29,6 +29,18 @@ export const VIEWS: View[] = [
     label: 'All open',
     params: { status: OPEN },
     empty: { title: 'No open tickets', body: 'When a customer writes in or fills the form, the ticket appears here.' },
+  },
+  {
+    id: 'at_risk',
+    label: 'At risk',
+    params: { sla: 'at_risk' },
+    empty: { title: 'Nothing at risk', body: 'Tickets close to missing a deadline show up here.' },
+  },
+  {
+    id: 'breached',
+    label: 'Breached',
+    params: { sla: 'breached' },
+    empty: { title: 'No breaches', body: 'Tickets that missed a deadline show up here.' },
   },
   {
     id: 'done',
@@ -65,6 +77,10 @@ export function matchesFilters(t: TicketItem, filters: Filters, meId: string): b
         ? open && t.assignee === null
         : filters.view === 'open'
           ? open
-          : !open
+          : filters.view === 'at_risk'
+            ? open && t.sla?.state === 'at_risk'
+            : filters.view === 'breached'
+              ? open && t.sla?.state === 'breached'
+              : !open
   return inView && (!filters.priority || t.priority === filters.priority)
 }
