@@ -1,17 +1,20 @@
-import { Inbox, LogOut, Moon, Plug, ScrollText, Sun, Timer, Users, Workflow } from 'lucide-react'
+import { BarChart3, Bell, Inbox, LogOut, Moon, Plug, ScrollText, Search, Sun, Timer, Users, Workflow } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 import { Avatar } from '../ui'
 import { ROLE_LABEL } from '../lib/types'
+import { useUnreadCount } from '../features/notifications/queries'
 import { useAuth } from './auth'
 import { useTheme } from './theme'
 
 const ITEMS = [
   { to: '/inbox', label: 'Inbox', icon: Inbox, perm: null },
+  { to: '/search', label: 'Search', icon: Search, perm: null },
   { to: '/people', label: 'People', icon: Users, perm: 'user:read' },
   { to: '/channels', label: 'Channels', icon: Plug, perm: 'settings:read' },
   { to: '/automations', label: 'Automations', icon: Workflow, perm: 'rule:read' },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3, perm: 'analytics:read' },
   { to: '/service-levels', label: 'Service levels', icon: Timer, perm: 'settings:read' },
   { to: '/audit', label: 'Audit log', icon: ScrollText, perm: 'audit:read' },
 ] as const
@@ -40,6 +43,7 @@ export function Shell() {
   }, [menuOpen])
 
   const workspace = me?.active_workspace
+  const unread = useUnreadCount().data ?? 0
 
   return (
     <div className="flex h-full flex-col-reverse md:flex-row">
@@ -68,6 +72,22 @@ export function Shell() {
           </NavLink>
         ))}
         <div className="md:mt-auto" />
+        <NavLink
+          to="/notifications"
+          aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+          title="Notifications"
+          className={({ isActive }) => `${RAIL_BUTTON} relative ${isActive ? 'bg-white/12 !text-white' : ''}`}
+        >
+          <Bell size={19} strokeWidth={1.9} aria-hidden="true" />
+          {unread > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-ink"
+            >
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </NavLink>
         <button
           type="button"
           onClick={toggle}

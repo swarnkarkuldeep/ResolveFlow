@@ -5,6 +5,10 @@ import { AcceptInvitePage } from '../features/auth/AcceptInvitePage'
 import { LoginPage } from '../features/auth/LoginPage'
 import { SignupPage } from '../features/auth/SignupPage'
 import { AuditPage } from '../features/audit/AuditPage'
+import { AnalyticsPage } from '../features/analytics/AnalyticsPage'
+import { CustomerPage } from '../features/customers/CustomerPage'
+import { NotificationsPage } from '../features/notifications/NotificationsPage'
+import { SearchPage } from '../features/search/SearchPage'
 import { ChannelsPage } from '../features/channels/ChannelsPage'
 import { InboxPage } from '../features/inbox/InboxPage'
 import { PeoplePage } from '../features/people/PeoplePage'
@@ -45,6 +49,10 @@ export function AppRoutes() {
       >
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/inbox/:ticketId" element={<InboxPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/customers/:id" element={<CustomerPage />} />
+        <Route path="/analytics" element={<RequirePermission permission="analytics:read"><AnalyticsPage /></RequirePermission>} />
         <Route path="/people" element={<RequirePermission permission="user:read"><PeoplePage /></RequirePermission>} />
         <Route path="/channels" element={<RequirePermission permission="settings:read"><ChannelsPage /></RequirePermission>} />
         <Route path="/automations" element={<RequirePermission permission="rule:read"><RulesPage /></RequirePermission>} />
