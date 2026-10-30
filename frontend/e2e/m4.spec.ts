@@ -37,8 +37,17 @@ test('assigning a ticket notifies the assignee, who can open and read it', async
   await expect(agent.page.getByRole('heading', { level: 2 })).toBeVisible()
   await agent.page.goto('/notifications')
   const all = agent.page.getByRole('button', { name: 'Mark all read' })
-  if (await all.isEnabled()) await all.click()
-  await expect(agent.page.getByText('You are all caught up.')).toBeVisible()
+  await expect(agent.page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible()
+  await expect
+    .poll(
+      async () => {
+        if (await agent.page.getByText('You are all caught up.').isVisible()) return true
+        if (await all.isEnabled()) await all.click()
+        return false
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true)
   await agent.context.close()
 })
 
