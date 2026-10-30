@@ -12,6 +12,7 @@ from resolveflow import audit
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
 from resolveflow.sla import service as sla
+from resolveflow.sla.summary import AT_RISK_SQL, BREACHED_SQL, SLA_COLUMNS, summarize
 from resolveflow.textutil import clean_line
 
 STATUSES = ("new", "open", "pending", "resolved", "closed")
@@ -26,11 +27,13 @@ select t.id, t.number, t.subject, t.status, t.priority, t.channel, t.last_activi
   coalesce((select array_agg(g.name order by g.name) from ticket_tags tt
             join tags g on g.id = tt.tag_id where tt.ticket_id = t.id), '{}') as tags,
   (select left(m.body, 160) from messages m where m.ticket_id = t.id
-   order by m.created_at, m.id limit 1) as snippet
+   order by m.created_at, m.id limit 1) as snippet,
+  __SLA_COLUMNS__
 from tickets t
 join customers c on c.id = t.requester_id
 left join users a on a.id = t.assignee_id
-"""
+left join ticket_sla ts on ts.ticket_id = t.id
+""".replace("__SLA_COLUMNS__", SLA_COLUMNS)
 
 
 def _item(r: Any) -> dict[str, Any]:
@@ -49,6 +52,7 @@ def _item(r: Any) -> dict[str, Any]:
         "created_at": r.created_at.isoformat(),
         "possible_duplicate_of": str(r.possible_duplicate_of) if r.possible_duplicate_of else None,
         "merged_into_id": str(r.merged_into_id) if r.merged_into_id else None,
+        "sla": summarize(r),
     }
 
 
@@ -212,6 +216,7 @@ def list_tickets(
     priorities: list[str] | None = None,
     assignee: str | None = None,
     tag: str | None = None,
+    sla: str | None = None,
     sort: str = "activity",
     order: str = "desc",
     limit: int = 50,
@@ -239,6 +244,11 @@ def list_tickets(
         except ValueError:
             raise err(422, "bad_assignee", "Assignee must be me, none or a user id.") from None
         where.append("t.assignee_id = :asg")
+    if sla in ("at_risk", "breached"):
+        where.append("t.status not in ('resolved', 'closed')")
+        where.append(
+            BREACHED_SQL if sla == "breached" else f"({AT_RISK_SQL} and not {BREACHED_SQL})"
+        )
     if tag:
         where.append(
             "exists (select 1 from ticket_tags tt join tags g on g.id = tt.tag_id "

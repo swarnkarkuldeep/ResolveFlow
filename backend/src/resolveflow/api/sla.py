@@ -1,9 +1,11 @@
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends
 
 from resolveflow.api.deps import RequestContext, require
 from resolveflow.sla.settings import SlaSettingsIn, read_settings, write_settings
+from resolveflow.sla.summary import explain
 
 router = APIRouter(prefix="/api")
 
@@ -22,3 +24,10 @@ def put_sla_settings(
     out = write_settings(ctx, body)
     ctx.commit()
     return out
+
+
+@router.get("/tickets/{ticket_id}/sla")
+def ticket_sla(
+    ticket_id: uuid.UUID, ctx: RequestContext = Depends(require("ticket:read"))
+) -> dict[str, Any]:
+    return explain(ctx, ticket_id)
