@@ -87,6 +87,7 @@ export function InboxPage() {
     resolve: () => can('ticket:update') && apply({ kind: 'status', value: 'resolved' }),
     assignMe: () => can('ticket:assign') && me && apply({ kind: 'assign', value: { id: me.user.id, name: me.user.name } }),
     focusFilter: () => filterRef.current?.focus(),
+    reply: () => window.dispatchEvent(new Event('rf:reply')),
     showHelp: () => setHelpOpen(true),
   }
   const actionsRef = useRef(actions)

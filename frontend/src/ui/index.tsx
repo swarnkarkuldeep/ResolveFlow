@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
-import type { ButtonHTMLAttributes, ComponentProps, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from 'react'
 import { ArrowUp, ChevronsUp, Minus } from 'lucide-react'
 
 import { initials } from '../lib/format'
@@ -60,11 +60,11 @@ export function Field({
   )
 }
 
-export function TextInput({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
+export function TextInput({ className = '', ...rest }: ComponentProps<'input'>) {
   return <input {...rest} className={`${CONTROL} h-10 ${className}`} />
 }
 
-export function TextArea({ className = '', ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function TextArea({ className = '', ...rest }: ComponentProps<'textarea'>) {
   return <textarea {...rest} className={`${CONTROL} py-2.5 leading-relaxed ${className}`} />
 }
 
