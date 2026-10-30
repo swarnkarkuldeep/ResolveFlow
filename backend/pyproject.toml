@@ -15,6 +15,7 @@ dependencies = [
   "celery[redis]>=5.4,<6",
   "redis>=5.0,<7",
   "pydantic-settings>=2.4,<3",
+  "argon2-cffi>=23,<26",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["E501"]  # long SQL strings; ruff format handles the rest
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S105", "S106"]

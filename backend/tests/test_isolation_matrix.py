@@ -32,7 +32,8 @@ def _make_tenant(conn, tag: str) -> Tenant:  # type: ignore[no-untyped-def]
     )
     cid = conn.execute(
         text(
-            "insert into customers (workspace_id, email, name) values (:w, 'c@x.test', 'C') returning id"
+            "insert into customers (workspace_id, email, name) "
+            "values (:w, 'c@x.test', 'C') returning id"
         ),
         {"w": wid},
     ).scalar_one()
@@ -86,7 +87,7 @@ def test_cross_tenant_read_returns_nothing(tenants: tuple[Tenant, Tenant]) -> No
     a, b = tenants
     with tenant_session(a.workspace_id, a.user_id) as s:
         for table in ("tickets", "messages", "customers", "audit_log", "memberships"):
-            ws = s.execute(text(f"select distinct workspace_id from {table}")).scalars().all()
+            ws = s.execute(text(f"select distinct workspace_id from {table}")).scalars().all()  # noqa: S608
             assert ws == [a.workspace_id], table
         assert (
             s.execute(

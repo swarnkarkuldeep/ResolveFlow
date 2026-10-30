@@ -2,6 +2,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from resolveflow.api import auth as auth_api
 from resolveflow.config import get_settings
 from resolveflow.db import app_engine
 from resolveflow.health import check_db, check_redis, check_scheduler
@@ -50,3 +51,4 @@ def system() -> SystemOut:
 
 app = FastAPI(title="ResolveFlow")
 app.include_router(api)
+app.include_router(auth_api.router)
