@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any, Literal
 
@@ -7,9 +8,12 @@ from pydantic import BaseModel, Field, field_validator
 from resolveflow.api.deps import RequestContext, require
 from resolveflow.errors import err
 from resolveflow.permissions import PERMS
+from resolveflow.services import messages as msg_svc
 from resolveflow.services import tickets as svc
+from resolveflow.tasks.email import send_outbound_message
 from resolveflow.types import EmailAddr
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 
 Status = Literal["new", "open", "pending", "resolved", "closed"]
@@ -39,6 +43,12 @@ class TicketPatch(BaseModel):
         if any(len(t) > 40 for t in cleaned):
             raise ValueError("Tags can be at most 40 characters.")
         return cleaned
+
+
+class MessageIn(BaseModel):
+    body: str = Field(min_length=1, max_length=20000)
+    kind: Literal["public", "note"]
+    set_pending: bool = False
 
 
 def _csv(value: str | None, allowed: tuple[str, ...], name: str) -> list[str] | None:
@@ -120,3 +130,19 @@ def activity(
     ticket_id: uuid.UUID, ctx: RequestContext = Depends(require("ticket:read"))
 ) -> list[dict[str, Any]]:
     return svc.ticket_activity(ctx, ticket_id)
+
+
+@router.post("/tickets/{ticket_id}/messages")
+def add_message(
+    ticket_id: uuid.UUID, body: MessageIn, ctx: RequestContext = Depends(require("ticket:reply"))
+) -> dict[str, Any]:
+    out = msg_svc.add_message(
+        ctx, ticket_id, body=body.body, kind=body.kind, set_pending=body.set_pending
+    )
+    ctx.commit()
+    if body.kind == "public":
+        try:
+            send_outbound_message.delay(out["id"])
+        except Exception:  # broker down: the row stays queued and the sweeper re-queues it
+            log.warning("could not enqueue outbound email", exc_info=True)
+    return out

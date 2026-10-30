@@ -17,5 +17,9 @@ celery.conf.update(
     timezone="UTC",
     beat_schedule={
         "heartbeat": {"task": "resolveflow.tasks.system.heartbeat", "schedule": 30.0},
+        "requeue-stuck-outbound": {
+            "task": "resolveflow.tasks.email.requeue_stuck_outbound",
+            "schedule": 60.0,
+        },
     },
 )
