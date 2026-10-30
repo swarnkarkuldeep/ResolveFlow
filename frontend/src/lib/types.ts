@@ -218,3 +218,59 @@ export interface RuleExecution {
   depth: number
   actions: { type: string; text: string; status: 'applied' | 'skipped' | 'failed'; reason: string | null }[]
 }
+
+export interface SearchHit extends TicketItem {
+  match: 'subject' | 'message'
+  snippet_html: string
+  rank: number
+}
+
+export type NotificationKind = 'assigned' | 'customer_reply' | 'sla' | 'escalation' | 'rule'
+
+export interface AppNotification {
+  id: string
+  kind: NotificationKind
+  title: string
+  body: string | null
+  read: boolean
+  created_at: string
+  ticket: { id: string; number: number } | null
+}
+
+export interface NotificationPref {
+  kind: NotificationKind
+  in_app: boolean
+  email: boolean
+}
+
+export interface Delivery {
+  id: string
+  title: string
+  kind: NotificationKind
+  recipient: string
+  attempts: number
+  error: string | null
+  status: string
+  created_at: string
+}
+
+export interface Analytics {
+  range: { days: number; since: string; timezone: string }
+  totals: { created: number; resolved: number; open_now: number }
+  sla: {
+    first_response: { measured: number; met: number; compliance_pct: number | null }
+    resolution: { measured: number; met: number; compliance_pct: number | null }
+    breached: number
+  }
+  averages: { first_response_minutes: number | null; resolution_minutes: number | null }
+  by_day: { date: string; created: number; resolved: number }[]
+  by_priority: { priority: Priority; count: number }[]
+  by_channel: { channel: string; count: number }[]
+  by_agent: { id: string; agent: string; assigned: number; resolved: number }[]
+}
+
+export interface CustomerHistory {
+  customer: { id: string; email: string; name: string | null; since: string }
+  tickets: TicketItem[]
+  stats: { total: number; open: number }
+}

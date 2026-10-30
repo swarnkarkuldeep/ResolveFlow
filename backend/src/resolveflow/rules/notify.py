@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
+from resolveflow.notifications import service as notif
 
 
 def recipients(ctx: ServiceCtx, ticket_id: uuid.UUID, params: dict[str, Any]) -> list[uuid.UUID]:
@@ -74,23 +75,12 @@ def create_intents(
         else f"{rule_name}: ticket #{ticket.number}"
     )
     body = f"{message} — {ticket.subject}" if message else ticket.subject
-    created = 0
-    for user_id in recipients(ctx, ticket_id, params):
-        row = ctx.session.execute(
-            text(
-                "insert into notifications (workspace_id, user_id, kind, ticket_id, title, body, dedupe_key) "
-                "values (:w, :u, :k, :t, :ti, :b, :d) on conflict (workspace_id, dedupe_key) "
-                "where dedupe_key is not null do nothing returning id"
-            ),
-            {
-                "w": ctx.ws,
-                "u": user_id,
-                "k": "escalation" if escalated else "rule",
-                "t": ticket_id,
-                "ti": title[:200],
-                "b": body[:500],
-                "d": f"exec:{execution_id}:{user_id}:{params.get('target')}",
-            },
-        ).first()
-        created += 1 if row else 0
-    return created
+    return notif.notify(
+        ctx,
+        recipients(ctx, ticket_id, params),
+        "escalation" if escalated else "rule",
+        ticket_id,
+        title,
+        body,
+        f"exec:{execution_id}:{params.get('target')}",
+    )

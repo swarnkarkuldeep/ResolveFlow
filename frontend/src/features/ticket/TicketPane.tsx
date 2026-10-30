@@ -68,8 +68,10 @@ export function TicketPane({ ticketId, backTo }: { ticketId: string; backTo: To 
 
           <h2 className="font-serif text-[28px] font-medium leading-tight tracking-tight">{t.subject}</h2>
           <p className="mb-5 mt-1.5 text-[14px] text-slate">
-            {t.requester.name ? `${t.requester.name} · ` : ''}
-            {t.requester.email}
+            <Link to={`/customers/${t.requester.id}`} className="hover:text-ink hover:underline underline-offset-2">
+              {t.requester.name ? `${t.requester.name} · ` : ''}
+              {t.requester.email}
+            </Link>
           </p>
 
           {merged && (
