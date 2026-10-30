@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, ComponentProps, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 import { ArrowUp, ChevronsUp, Minus } from 'lucide-react'
 
 import { initials } from '../lib/format'
@@ -68,7 +68,7 @@ export function TextArea({ className = '', ...rest }: TextareaHTMLAttributes<HTM
   return <textarea {...rest} className={`${CONTROL} py-2.5 leading-relaxed ${className}`} />
 }
 
-export function Select({ className = '', ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className = '', ...rest }: ComponentProps<'select'>) {
   return <select {...rest} className={`${CONTROL} h-9 pr-8 ${className}`} />
 }
 
