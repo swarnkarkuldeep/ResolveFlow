@@ -19,6 +19,8 @@ const ADMIN = [
   'rule:read',
   'rule:manage',
   'team:manage',
+  'notification:admin',
+  'analytics:read',
 ]
 
 /** Mirrors backend `permissions.PERMS`; the server remains the authority (see /api/auth/me). */

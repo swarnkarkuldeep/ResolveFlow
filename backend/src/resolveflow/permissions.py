@@ -22,6 +22,8 @@ _ADMIN = frozenset(
         "rule:read",
         "rule:manage",
         "team:manage",
+        "notification:admin",
+        "analytics:read",
     }
 )
 
