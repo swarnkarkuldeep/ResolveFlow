@@ -1,4 +1,6 @@
-from fastapi import APIRouter, FastAPI
+from collections.abc import Awaitable, Callable
+
+from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -8,6 +10,7 @@ from resolveflow.api import auth as auth_api
 from resolveflow.api import deliveries as deliveries_api
 from resolveflow.api import members as members_api
 from resolveflow.api import notifications as notifications_api
+from resolveflow.api import privacy as privacy_api
 from resolveflow.api import public as public_api
 from resolveflow.api import rules as rules_api
 from resolveflow.api import search as search_api
@@ -62,6 +65,20 @@ def system() -> SystemOut:
 
 
 app = FastAPI(title="ResolveFlow")
+
+
+@app.middleware("http")
+async def security_headers(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Cache-Control"] = "no-store"  # API data is per-user; never cache it
+    return response
+
+
 app.include_router(api)
 app.include_router(auth_api.router)
 app.include_router(audit_api.router)
@@ -70,6 +87,7 @@ app.include_router(public_api.router)
 app.include_router(analytics_api.router)
 app.include_router(deliveries_api.router)
 app.include_router(notifications_api.router)
+app.include_router(privacy_api.router)
 app.include_router(rules_api.router)
 app.include_router(search_api.router)
 app.include_router(sla_api.router)

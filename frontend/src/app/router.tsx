@@ -11,6 +11,7 @@ import { NotificationsPage } from '../features/notifications/NotificationsPage'
 import { SearchPage } from '../features/search/SearchPage'
 import { ChannelsPage } from '../features/channels/ChannelsPage'
 import { InboxPage } from '../features/inbox/InboxPage'
+import { PrivacyPage } from '../features/privacy/PrivacyPage'
 import { PeoplePage } from '../features/people/PeoplePage'
 import { RuleEditorPage } from '../features/rules/RuleEditorPage'
 import { RulesPage } from '../features/rules/RulesPage'
@@ -59,6 +60,7 @@ export function AppRoutes() {
         <Route path="/automations/new" element={<RequirePermission permission="rule:read"><RuleEditorPage /></RequirePermission>} />
         <Route path="/automations/:id" element={<RequirePermission permission="rule:read"><RuleEditorPage /></RequirePermission>} />
         <Route path="/service-levels" element={<RequirePermission permission="settings:read"><SlaSettingsPage /></RequirePermission>} />
+        <Route path="/privacy" element={<RequirePermission permission="settings:read"><PrivacyPage /></RequirePermission>} />
         <Route path="/audit" element={<RequirePermission permission="audit:read"><AuditPage /></RequirePermission>} />
       </Route>
       <Route path="*" element={<Navigate to="/inbox" replace />} />

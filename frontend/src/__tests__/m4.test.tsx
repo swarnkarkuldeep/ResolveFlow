@@ -206,3 +206,36 @@ describe('customer history', () => {
     expect(within(list).getByRole('link', { name: /Second problem/ })).toHaveAttribute('href', '/inbox/t2')
   })
 })
+
+describe('privacy', () => {
+  it('saves a retention period and only erases after an explicit confirmation', async () => {
+    const calls: string[] = []
+    let policy = { retention_days: null as number | null, eligible_tickets: 0 }
+    stubFetch((url, init) => {
+      const u = new URL(url, 'http://x')
+      const method = init.method ?? 'GET'
+      if (u.pathname === '/api/auth/me') return { body: meFor('owner') }
+      if (u.pathname === '/api/notifications/unread-count') return { body: { count: 0 } }
+      if (u.pathname === '/api/settings/privacy' && method === 'GET') return { body: policy }
+      if (u.pathname === '/api/settings/privacy' && method === 'PUT') {
+        policy = { retention_days: JSON.parse(String(init.body)).retention_days, eligible_tickets: 3 }
+        calls.push('save')
+        return { body: policy }
+      }
+      if (u.pathname === '/api/settings/privacy/apply') {
+        calls.push('apply')
+        policy = { ...policy, eligible_tickets: 0 }
+        return { body: { ...policy, tickets: 3, customers: 2 } }
+      }
+    })
+    renderApp(<AppRoutes />, '/privacy')
+    await userEvent.selectOptions(await screen.findByLabelText(/Remove content of resolved/), '90')
+    await userEvent.click(screen.getByRole('button', { name: 'Save retention' }))
+    expect(await screen.findByText('3 tickets are past the limit.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove expired content now' }))
+    expect(calls).toEqual(['save']) // nothing erased yet
+    await userEvent.click(screen.getByRole('button', { name: 'Erase now' }))
+    expect(await screen.findByText('No tickets are past the limit right now.')).toBeInTheDocument()
+    expect(calls).toEqual(['save', 'apply'])
+  })
+})
