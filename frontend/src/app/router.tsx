@@ -9,6 +9,7 @@ import { ChannelsPage } from '../features/channels/ChannelsPage'
 import { InboxPage } from '../features/inbox/InboxPage'
 import { PeoplePage } from '../features/people/PeoplePage'
 import { PublicFormPage } from '../features/publicform/PublicFormPage'
+import { SlaSettingsPage } from '../features/sla/SlaSettingsPage'
 import { useAuth } from './auth'
 import { Shell } from './Shell'
 
@@ -44,6 +45,7 @@ export function AppRoutes() {
         <Route path="/inbox/:ticketId" element={<InboxPage />} />
         <Route path="/people" element={<RequirePermission permission="user:read"><PeoplePage /></RequirePermission>} />
         <Route path="/channels" element={<RequirePermission permission="settings:read"><ChannelsPage /></RequirePermission>} />
+        <Route path="/service-levels" element={<RequirePermission permission="settings:read"><SlaSettingsPage /></RequirePermission>} />
         <Route path="/audit" element={<RequirePermission permission="audit:read"><AuditPage /></RequirePermission>} />
       </Route>
       <Route path="*" element={<Navigate to="/inbox" replace />} />
