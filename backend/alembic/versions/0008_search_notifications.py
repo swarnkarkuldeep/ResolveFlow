@@ -19,6 +19,7 @@ UP = [
     "CREATE INDEX tickets_search ON tickets USING gin (search_vec)",
     "CREATE INDEX messages_search ON messages USING gin (search_vec)",
     "ALTER TABLE notifications "
+    "ADD COLUMN in_app boolean NOT NULL DEFAULT true, "
     "ADD COLUMN email_status text NOT NULL DEFAULT 'none' "
     "CHECK (email_status IN ('none','queued','sent','dead','skipped')), "
     "ADD COLUMN email_attempts integer NOT NULL DEFAULT 0, "
@@ -53,7 +54,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS notification_prefs")
     op.execute(
-        "ALTER TABLE notifications DROP COLUMN email_status, DROP COLUMN email_attempts, "
+        "ALTER TABLE notifications DROP COLUMN in_app, DROP COLUMN email_status, DROP COLUMN email_attempts, "
         "DROP COLUMN email_last_error, DROP COLUMN email_sent_at, DROP COLUMN email_next_at"
     )
     op.execute("ALTER TABLE messages DROP COLUMN search_vec")

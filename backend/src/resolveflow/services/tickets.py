@@ -11,6 +11,7 @@ from sqlalchemy import text
 from resolveflow import audit
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
+from resolveflow.notifications import service as notif
 from resolveflow.rules import executor as rules_exec
 from resolveflow.sla import service as sla
 from resolveflow.sla.summary import AT_RISK_SQL, BREACHED_SQL, SLA_COLUMNS, summarize
@@ -386,6 +387,18 @@ def update_ticket(ctx: ServiceCtx, ticket_id: uuid.UUID, fields: dict[str, Any])
             rules_exec.on_status_changed(ctx, ticket_id, row.status, sets["status"])
         if "priority" in sets:
             sla.on_priority_changed(ctx, ticket_id, row.priority, sets["priority"])
+        new_assignee = sets.get("assignee_id")
+        if new_assignee is not None and new_assignee != ctx.actor_id:
+            number, subject, _ = notif.ticket_label(ctx, ticket_id)
+            notif.notify(
+                ctx,
+                [new_assignee],
+                "assigned",
+                ticket_id,
+                f"Assigned to you: ticket #{number}",
+                subject,
+                f"assigned:{ticket_id}:{uuid.uuid4()}",
+            )
     return get_ticket(ctx, ticket_id, with_messages=False)
 
 

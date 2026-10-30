@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from resolveflow.api import audit as audit_api
 from resolveflow.api import auth as auth_api
 from resolveflow.api import members as members_api
+from resolveflow.api import notifications as notifications_api
 from resolveflow.api import public as public_api
 from resolveflow.api import rules as rules_api
 from resolveflow.api import search as search_api
@@ -64,6 +65,7 @@ app.include_router(auth_api.router)
 app.include_router(audit_api.router)
 app.include_router(members_api.router)
 app.include_router(public_api.router)
+app.include_router(notifications_api.router)
 app.include_router(rules_api.router)
 app.include_router(search_api.router)
 app.include_router(sla_api.router)

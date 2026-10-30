@@ -11,6 +11,7 @@ from resolveflow.context import SystemContext
 from resolveflow.db import system_engine
 from resolveflow.email.inbound import InboundMessage
 from resolveflow.email.threading import match_ticket, parse_recipients
+from resolveflow.notifications import service as notif
 from resolveflow.rules import executor as rules_exec
 from resolveflow.services import tickets as ticket_svc
 from resolveflow.sla import service as sla
@@ -155,4 +156,15 @@ def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> In
         after={"from": msg.from_email, "message_id": msg.message_id},
     )
     rules_exec.run_event(ctx, ticket_id, "message.received")
+    number, subject, assignee = notif.ticket_label(ctx, ticket_id)
+    if assignee:
+        notif.notify(
+            ctx,
+            [assignee],
+            "customer_reply",
+            ticket_id,
+            f"New reply on ticket #{number}",
+            subject,
+            f"reply:{inserted.id}",
+        )
     return IngestResult("appended", ticket_id)

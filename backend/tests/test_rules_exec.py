@@ -104,7 +104,9 @@ def test_every_action_is_applied_audited_as_a_rule_and_recorded(
         recipients = {
             str(r.user_id)
             for r in conn.execute(
-                text("select user_id from notifications where ticket_id = :t"),
+                text(
+                    "select user_id from notifications where ticket_id = :t and kind in ('rule', 'escalation')"
+                ),
                 {"t": uuid.UUID(tk["id"])},
             )
         }
@@ -164,7 +166,9 @@ def test_escalate_assigns_and_notifies_owners_and_admins(
     assert ticket_of(t["owner"], tk["id"])["assignee"]["name"] == "Admin Person"
     with engine_for(postgres_url).connect() as conn:
         rows = conn.execute(
-            text("select user_id, body from notifications where ticket_id = :t"),
+            text(
+                "select user_id, body from notifications where ticket_id = :t and kind in ('rule', 'escalation')"
+            ),
             {"t": uuid.UUID(tk["id"])},
         ).all()
     assert {str(r.user_id) for r in rows} == {t["owner"].user_id, t["admin"].user_id}

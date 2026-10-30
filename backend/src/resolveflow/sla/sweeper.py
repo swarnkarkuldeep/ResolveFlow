@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from resolveflow import audit
 from resolveflow.context import SystemContext
+from resolveflow.notifications import service as notif
 from resolveflow.rules import executor as rules_exec
 from resolveflow.sla import service
 
@@ -75,6 +76,20 @@ def _process_ticket(ctx: SystemContext, ticket: Any, now: datetime) -> int:
                     ticket.ticket_id,
                     "sla.threshold",
                     "warning" if level == "warning" else "breach",
+                )
+                number, subject, _ = notif.ticket_label(ctx, ticket.ticket_id)
+                label = "first response" if metric == "first_response" else "resolution"
+                notif.notify_assignee_or_admins(
+                    ctx,
+                    ticket.ticket_id,
+                    "sla",
+                    (
+                        f"Ticket #{number} is close to its {label} deadline"
+                        if level == "warning"
+                        else f"Ticket #{number} missed its {label} deadline"
+                    ),
+                    subject,
+                    f"sla:{key}",
                 )
                 audit.record(
                     ctx.session,
