@@ -1,6 +1,10 @@
 x-app-env: &app-env
   ENV: dev
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-resolveflow}:${POSTGRES_PASSWORD:-resolveflow}@db:5432/${POSTGRES_DB:-resolveflow}
+  APP_DATABASE_URL: postgresql+psycopg://rf_app:${APP_DB_PASSWORD:-rf_app_dev}@db:5432/${POSTGRES_DB:-resolveflow}
+  SYSTEM_DATABASE_URL: postgresql+psycopg://rf_system:${SYSTEM_DB_PASSWORD:-rf_system_dev}@db:5432/${POSTGRES_DB:-resolveflow}
+  APP_DB_PASSWORD: ${APP_DB_PASSWORD:-rf_app_dev}
+  SYSTEM_DB_PASSWORD: ${SYSTEM_DB_PASSWORD:-rf_system_dev}
   REDIS_URL: redis://redis:6379/0
   SMTP_HOST: mailpit
   SMTP_PORT: "1025"

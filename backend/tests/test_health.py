@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from resolveflow.config import get_settings
+from resolveflow.db import app_engine
 from resolveflow.main import app
 
 
@@ -32,8 +33,10 @@ def test_ready_503_when_redis_down(client: TestClient, monkeypatch: pytest.Monke
 
 
 def test_ready_503_when_db_down(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@127.0.0.1:1/db")
+    for var in ("DATABASE_URL", "APP_DATABASE_URL"):
+        monkeypatch.setenv(var, "postgresql+psycopg://u:p@127.0.0.1:1/db")
     get_settings.cache_clear()
+    app_engine.cache_clear()
     r = client.get("/api/health/ready")
     assert r.status_code == 503
     checks = {c["name"]: c for c in r.json()["checks"]}

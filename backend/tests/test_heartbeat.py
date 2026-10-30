@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from resolveflow.celery_app import celery
-from resolveflow.db import engine_for
+from resolveflow.db import app_engine, engine_for
 from resolveflow.health import check_scheduler
 from resolveflow.tasks.system import heartbeat
 
@@ -62,8 +62,10 @@ def test_system_endpoint_is_200_when_db_is_down(
 ) -> None:
     from resolveflow.config import get_settings
 
-    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@127.0.0.1:1/db")
+    for var in ("DATABASE_URL", "APP_DATABASE_URL"):
+        monkeypatch.setenv(var, "postgresql+psycopg://u:p@127.0.0.1:1/db")
     get_settings.cache_clear()
+    app_engine.cache_clear()
     r = client.get("/api/health/system")
     assert r.status_code == 200
     checks = {c["name"]: c for c in r.json()["checks"]}
