@@ -80,7 +80,12 @@ class FlakyProvider:
 
 def _age_all(url: str) -> None:
     with engine_for(url).begin() as conn:
-        conn.execute(text("update messages set created_at = now() - interval '5 minutes'"))
+        conn.execute(
+            text(
+                "update messages set created_at = now() - interval '5 minutes' "
+                "where delivery_status = 'queued'"
+            )
+        )
 
 
 def test_transient_failure_is_retried_by_the_sweeper(
@@ -113,7 +118,8 @@ def test_permanent_failure_is_marked_failed_and_visible(
     row = _msg_row(postgres_url, mid)
     assert (row.delivery_status, row.delivery_attempts) == ("failed", email_tasks.MAX_ATTEMPTS)
     assert requeue_stuck_outbound() == 0  # failed rows are not retried forever
-    shown = owner.get(f"/api/tickets/{tk['id']}").json()["messages"][-1]
+    messages = owner.get(f"/api/tickets/{tk['id']}").json()["messages"]
+    shown = next(m for m in messages if m["direction"] == "outbound")
     assert shown["delivery_status"] == "failed"
 
 
