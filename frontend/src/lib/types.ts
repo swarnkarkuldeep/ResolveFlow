@@ -93,6 +93,12 @@ export interface Member {
   active: boolean
 }
 
+export interface Team {
+  id: string
+  name: string
+  members: { user_id: string; name: string; role: Role; active: boolean }[]
+}
+
 export interface Invitation {
   id: string
   email: string
@@ -152,4 +158,63 @@ export const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
   agent: 'Agent',
   viewer: 'Viewer',
+}
+
+export interface RuleSummary {
+  id: string
+  name: string
+  position: number
+  status: 'draft' | 'active' | 'archived'
+  active_version: number | null
+  current_version: number
+  definition: import('../features/rules/vocab').RuleDefinition
+  tested: boolean
+  updated_at: string
+}
+
+export interface RuleVersionInfo {
+  version: number
+  content_hash: string
+  created_at: string
+  author: string | null
+  tested: boolean
+  active: boolean
+}
+
+export interface RuleTestInfo {
+  id: string
+  version: number
+  expectation: 'match' | 'no_match'
+  matched: boolean
+  passed: boolean
+  created_at: string
+  author: string | null
+}
+
+export interface RuleDetail extends RuleSummary {
+  versions: RuleVersionInfo[]
+  tests: RuleTestInfo[]
+}
+
+export type TraceNode =
+  | { kind: 'group'; op: 'and' | 'or'; passed: boolean; children: TraceNode[] }
+  | { kind: 'condition'; field: string; operator: string; value: unknown; actual: unknown; passed: boolean }
+
+export interface TestResult {
+  matched: boolean
+  trigger_matched: boolean
+  conditions: TraceNode | null
+  actions: { type: string; text: string; status: 'apply' | 'applied' | 'skipped' | 'failed'; reason: string | null }[]
+  passed?: boolean
+  test_id?: string
+  version?: number
+}
+
+export interface RuleExecution {
+  at: string
+  event: string
+  rule: { id: string; name: string; version: number }
+  matched: boolean
+  depth: number
+  actions: { type: string; text: string; status: 'applied' | 'skipped' | 'failed'; reason: string | null }[]
 }

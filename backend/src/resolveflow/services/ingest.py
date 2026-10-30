@@ -11,6 +11,7 @@ from resolveflow.context import SystemContext
 from resolveflow.db import system_engine
 from resolveflow.email.inbound import InboundMessage
 from resolveflow.email.threading import match_ticket, parse_recipients
+from resolveflow.rules import executor as rules_exec
 from resolveflow.services import tickets as ticket_svc
 from resolveflow.sla import service as sla
 
@@ -142,6 +143,7 @@ def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> In
     )
     new_status = "open" if old_status in ("resolved", "pending") else old_status
     sla.on_status_changed(ctx, ticket_id, old_status, new_status)
+    rules_exec.on_status_changed(ctx, ticket_id, old_status, new_status)
     audit.record(
         s,
         workspace_id=ctx.ws,
@@ -152,4 +154,5 @@ def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> In
         entity_id=ticket_id,
         after={"from": msg.from_email, "message_id": msg.message_id},
     )
+    rules_exec.run_event(ctx, ticket_id, "message.received")
     return IngestResult("appended", ticket_id)

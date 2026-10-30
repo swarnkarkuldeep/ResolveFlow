@@ -11,6 +11,7 @@ from sqlalchemy import text
 from resolveflow import audit
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
+from resolveflow.rules import executor as rules_exec
 from resolveflow.sla import service as sla
 from resolveflow.sla.summary import AT_RISK_SQL, BREACHED_SQL, SLA_COLUMNS, summarize
 from resolveflow.textutil import clean_line
@@ -168,6 +169,7 @@ def create_ticket(
         request_id=ctx.request_id,
     )
     sla.on_created(ctx, ticket_id)
+    rules_exec.run_event(ctx, ticket_id, "ticket.created")
     return get_ticket(ctx, ticket_id, with_messages=False)
 
 
@@ -381,6 +383,7 @@ def update_ticket(ctx: ServiceCtx, ticket_id: uuid.UUID, fields: dict[str, Any])
         )
         if "status" in sets:
             sla.on_status_changed(ctx, ticket_id, row.status, sets["status"])
+            rules_exec.on_status_changed(ctx, ticket_id, row.status, sets["status"])
         if "priority" in sets:
             sla.on_priority_changed(ctx, ticket_id, row.priority, sets["priority"])
     return get_ticket(ctx, ticket_id, with_messages=False)

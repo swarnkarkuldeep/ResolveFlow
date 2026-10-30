@@ -9,6 +9,7 @@ import { copyText } from '../../lib/clipboard'
 import { fullTime } from '../../lib/format'
 import { ROLES, ROLE_LABEL } from '../../lib/types'
 import type { Invitation, Member, Role } from '../../lib/types'
+import { TeamsSection } from '../teams/TeamsSection'
 import { Avatar, Button, Dialog, Field, FormError, Select, Spinner, TextInput } from '../../ui'
 
 export function PeoplePage() {
@@ -201,6 +202,7 @@ export function PeoplePage() {
             )}
           </>
         )}
+        <TeamsSection />
       </div>
 
       {confirming && (

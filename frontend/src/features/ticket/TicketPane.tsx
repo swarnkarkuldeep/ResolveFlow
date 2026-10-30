@@ -9,6 +9,7 @@ import { Button, Spinner } from '../../ui'
 import { useMembers } from '../inbox/queries'
 import { Composer } from './Composer'
 import { MergeDialog } from './MergeDialog'
+import { WhyPanel } from '../rules/WhyPanel'
 import { SlaPanel } from '../sla/SlaPanel'
 import { Properties } from './Properties'
 import { describeActivity, useActivity, useTicket } from './queries'
@@ -93,6 +94,7 @@ export function TicketPane({ ticketId, backTo }: { ticketId: string; backTo: To 
           </div>
 
           <SlaPanel ticketId={t.id} />
+          <WhyPanel ticketId={t.id} />
 
           <Thread messages={t.messages} />
 
