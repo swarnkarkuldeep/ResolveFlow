@@ -2,6 +2,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from resolveflow.api import analytics as analytics_api
 from resolveflow.api import audit as audit_api
 from resolveflow.api import auth as auth_api
 from resolveflow.api import deliveries as deliveries_api
@@ -66,6 +67,7 @@ app.include_router(auth_api.router)
 app.include_router(audit_api.router)
 app.include_router(members_api.router)
 app.include_router(public_api.router)
+app.include_router(analytics_api.router)
 app.include_router(deliveries_api.router)
 app.include_router(notifications_api.router)
 app.include_router(rules_api.router)
