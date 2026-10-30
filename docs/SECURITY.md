@@ -16,7 +16,7 @@ Under **Privacy**, an owner or admin can choose to remove content after 30 days 
 
 ## Known limits
 
-- The audit log is append-only by design, so it keeps the subject recorded when a ticket was created, even after redaction. Backups and database snapshots are outside the application's reach.
+- The audit log is append-only by design, so it keeps the subject recorded when a ticket was created and the sender address of received messages, even after redaction. Tags and the text of past automation runs on a ticket also remain. Backups and database snapshots are outside the application's reach.
 - Rule and email-provider credentials are not encrypted in the database. The Postmark token is read from the environment only.
 - The demo setup uses plain HTTP on localhost. A real deployment needs HTTPS and `COOKIE_SECURE=true`.
 - There is no two-factor sign-in and no single sign-on.

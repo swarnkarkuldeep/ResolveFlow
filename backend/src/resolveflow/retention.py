@@ -1,3 +1,4 @@
+# ruff: noqa: S608  (concatenated SQL is built only from module constants; values are bound)
 """Configurable data retention: old finished tickets are redacted, not just hidden.
 
 A resolved or closed ticket untouched for `retention_days` loses its message text, subject and
@@ -6,6 +7,7 @@ ticket shell (number, dates, status, priority, SLA outcome) stays so analytics a
 working. The append-only audit log is not rewritten.
 """
 
+import logging
 import uuid
 from typing import Any
 
@@ -15,10 +17,19 @@ from sqlalchemy.orm import Session
 from resolveflow import audit
 from resolveflow.context import ServiceCtx, SystemContext
 
+log = logging.getLogger(__name__)
+
 REMOVED = "[Removed by the retention policy]"
 
+# A ticket whose content is already gone and which has not been touched since (alias `t`).
+_EXPIRED = (
+    "(t.redacted_at is not null and t.status in ('resolved', 'closed') "
+    "and t.last_activity_at <= t.redacted_at)"
+)
+
 _ELIGIBLE = (
-    "from tickets where workspace_id = :w and redacted_at is null "
+    "from tickets where workspace_id = :w "
+    "and (redacted_at is null or last_activity_at > redacted_at) "
     "and status in ('resolved', 'closed') "
     "and last_activity_at < now() - make_interval(days => :d)"
 )
@@ -98,7 +109,10 @@ def apply(ctx: ServiceCtx) -> dict[str, int]:
             "and exists (select 1 from tickets t where t.requester_id = c.id "
             "and t.workspace_id = c.workspace_id) "
             "and not exists (select 1 from tickets t where t.requester_id = c.id "
-            "and t.workspace_id = c.workspace_id and t.redacted_at is null) returning c.id"
+            "and t.workspace_id = c.workspace_id and not " + _EXPIRED + ") "
+            "and not exists (select 1 from messages m join tickets t on t.id = m.ticket_id "
+            "and t.workspace_id = m.workspace_id where m.author_customer_id = c.id "
+            "and m.workspace_id = c.workspace_id and not " + _EXPIRED + ") returning c.id"
         ),
         {"w": ctx.ws},
     ).all()
@@ -125,6 +139,9 @@ def apply_all(engine: Engine) -> int:
         ]
     done = 0
     for ws in workspaces:
-        with Session(engine) as s, s.begin():
-            done += apply(SystemContext(s, ws))["tickets"]
+        try:  # one broken workspace must not stop the others
+            with Session(engine) as s, s.begin():
+                done += apply(SystemContext(s, ws))["tickets"]
+        except Exception:
+            log.exception("retention failed for workspace %s", ws)
     return done

@@ -12,7 +12,7 @@ browser -> web (nginx, static React app) -> /api -> api (FastAPI)
 
 ## Principles
 
-- **PostgreSQL is the source of truth.** Redis only wakes workers up. Every job (email delivery, SLA checks, retention, notification mail) is a row with a state, so a restart, a lost message or a duplicate task can never lose or repeat work.
+- **PostgreSQL is the source of truth.** Redis only wakes workers up. Every job that must not be lost or repeated (email delivery, SLA checks, notification mail) is a row with a state, and the hourly retention sweep is stateless and idempotent, so a restart, a lost message or a duplicate task can never lose or repeat work.
 - **Tenant isolation in the database.** Every tenant table has `workspace_id`, composite foreign keys `(id, workspace_id)` and forced row-level security. The API connects as `rf_app` (RLS enforced, cannot read password hashes). Only trusted system flows (scheduler, inbound ingest, login lookup) use `rf_system`.
 - **Pure engines, thin services.** Business rules live in pure modules with no database access (`sla/engine.py`, `rules/engine.py`), covered by direct unit tests. Services call them and persist the results.
 - **Everything is audited.** Changes write an append-only `audit_log` row in the same transaction, naming the actor: a user, the system, or a rule.

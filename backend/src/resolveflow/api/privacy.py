@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api")
 
 
 class PrivacyIn(BaseModel):
-    retention_days: int | None = Field(default=None, ge=30, le=3650)
+    retention_days: int | None = Field(default=None, ge=30, le=730)
 
 
 @router.get("/settings/privacy")

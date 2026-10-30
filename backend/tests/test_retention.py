@@ -101,3 +101,57 @@ def test_the_scheduled_job_applies_every_workspace_policy_and_only_those(
         with_policy.get(f"/api/tickets/{a['id']}").json()["subject"].endswith("(content removed)")
     )
     assert without.get(f"/api/tickets/{b['id']}").json()["subject"] == "Old B"
+
+
+def test_a_redacted_ticket_that_is_reopened_is_redacted_again_and_keeps_its_customer(
+    client_factory: ClientFactory, postgres_url: str
+) -> None:
+    owner = make_owner(client_factory)
+    email = "back@customer.test"
+    a = owner.post(
+        "/api/tickets", {"subject": "Old", "body": "old text", "requester_email": email}
+    ).json()
+    age(postgres_url, a["id"], 400)
+    put(owner, 30)
+    assert owner.post("/api/settings/privacy/apply", {}).json()["customers"] == 1
+    # the customer writes again and the ticket is reopened with fresh content
+    with engine_for(postgres_url).begin() as conn:
+        conn.execute(
+            text("update customers set email = :e, name = 'Back' where id = :c"),
+            {"e": email, "c": uuid.UUID(a["requester"]["id"])},
+        )
+        conn.execute(
+            text("update tickets set status = 'open', last_activity_at = now() where id = :t"),
+            {"t": uuid.UUID(a["id"])},
+        )
+    # while it is live, its customer is never anonymised, and it is not eligible
+    assert owner.post("/api/settings/privacy/apply", {}).json()["customers"] == 0
+    age(postgres_url, a["id"], 400)  # resolved again and idle past the limit
+    with engine_for(postgres_url).begin() as conn:  # (the redaction itself happened even earlier)
+        conn.execute(
+            text("update tickets set redacted_at = now() - interval '500 days' where id = :t"),
+            {"t": uuid.UUID(a["id"])},
+        )
+    again = owner.post("/api/settings/privacy/apply", {}).json()
+    assert again["tickets"] == 1
+
+
+def test_a_customer_whose_messages_sit_on_a_live_ticket_is_not_anonymised(
+    client_factory: ClientFactory, postgres_url: str
+) -> None:
+    owner = make_owner(client_factory)
+    old = owner.post(
+        "/api/tickets", {"subject": "Src", "body": "x", "requester_email": "a@customer.test"}
+    ).json()
+    live = new_ticket(owner, "Target")
+    with engine_for(
+        postgres_url
+    ).begin() as conn:  # as after a merge: A's message lives on the target
+        conn.execute(
+            text("update messages set ticket_id = :t where ticket_id = :s"),
+            {"t": uuid.UUID(live["id"]), "s": uuid.UUID(old["id"])},
+        )
+    age(postgres_url, old["id"], 400, status="closed")
+    put(owner, 30)
+    out = owner.post("/api/settings/privacy/apply", {}).json()
+    assert out["tickets"] == 1 and out["customers"] == 0

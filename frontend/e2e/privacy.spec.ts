@@ -23,3 +23,14 @@ test('an agent cannot open Privacy', async ({ page }) => {
   await page.goto('/privacy')
   await expect(page.getByRole('heading', { name: 'Inbox', level: 1 })).toBeVisible()
 })
+
+test('the saved theme is applied before the app loads, even on the login page (CSP allows the theme script)', async ({ page }) => {
+  const violations: string[] = []
+  page.on('console', (m) => {
+    if (/Content Security Policy/i.test(m.text())) violations.push(m.text())
+  })
+  await page.addInitScript(() => localStorage.setItem('rf-theme', 'dark'))
+  await page.goto('/login')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  expect(violations).toEqual([])
+})
