@@ -39,6 +39,28 @@ browser -> web (nginx, static React app) -> /api -> api (FastAPI)
 
 **Notifications.** Only `notifications/service.py` creates them. Each has a dedupe key, so the same event notifies once. Email is leased in a short transaction, sent with no transaction open, and each result committed alone, so a crash re-sends at most the one message in flight.
 
+## What happens when a customer writes in
+
+```mermaid
+sequenceDiagram
+  participant C as Customer
+  participant A as API
+  participant D as PostgreSQL
+  participant S as Scheduler / worker
+  participant T as Teammate
+  C->>A: web form or inbound email
+  A->>D: one transaction: ticket + message
+  Note over A,D: SLA clock starts, matching rules run<br/>(assign, prioritise, tag, notify),<br/>notifications and audit rows are written
+  A-->>C: 200 OK
+  S->>D: claim queued notification emails (SKIP LOCKED)
+  S-->>T: email via provider (Mailpit locally)
+  T->>A: opens the ticket (bell polls every 20 s)
+  A->>D: reads ticket, SLA explanation, "automations that ran"
+  S->>D: every minute: record 75% warning / 100% breach once
+```
+
+Everything in the first transaction commits or rolls back together, so a ticket never exists without its clock, and a rule failure is recorded without losing the ticket.
+
 ## Frontend
 
 React with TanStack Query for server state and React Router. No global client store. Permissions are mirrored from the server for display only; the server is the authority.
