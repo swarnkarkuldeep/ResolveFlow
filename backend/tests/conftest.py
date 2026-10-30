@@ -1,23 +1,27 @@
 import os
-from collections.abc import Iterator
+
+# Import-time defaults so modules that read settings at import (celery_app) can be collected;
+# fixtures below override these with real container URLs.
+os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://x:x@127.0.0.1:1/x")
+os.environ.setdefault("REDIS_URL", "redis://127.0.0.1:1/0")
+
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
 
 from alembic import command
+from resolveflow.celery_app import celery
 from resolveflow.config import get_settings
-from resolveflow.db import engine_for
+from resolveflow.db import app_engine, engine_for, system_engine
+from resolveflow.email.outbound import MemoryProvider
 from resolveflow.main import app
-
-# Import-time defaults so modules that read settings at import (celery_app) can be collected;
-# fixtures below override these with real container URLs.
-os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://x:x@127.0.0.1:1/x")
-os.environ.setdefault("REDIS_URL", "redis://127.0.0.1:1/0")
 
 
 @pytest.fixture(scope="session")
@@ -39,19 +43,49 @@ def redis_url() -> Iterator[str]:
         yield f"redis://{r.get_container_host_ip()}:{r.get_exposed_port(6379)}/0"
 
 
+def _reset() -> None:
+    get_settings.cache_clear()
+    engine_for.cache_clear()
+    app_engine.cache_clear()
+    system_engine.cache_clear()
+
+
+def _as_role(url: str, role: str, password: str) -> str:
+    return make_url(url).set(username=role, password=password).render_as_string(hide_password=False)
+
+
+@pytest.fixture(scope="session")
+def app_url(postgres_url: str) -> str:
+    return _as_role(postgres_url, "rf_app", "rf_app_dev")
+
+
+@pytest.fixture(scope="session")
+def system_url(postgres_url: str) -> str:
+    return _as_role(postgres_url, "rf_system", "rf_system_dev")
+
+
 @pytest.fixture
-def env(monkeypatch: pytest.MonkeyPatch, postgres_url: str, redis_url: str) -> Iterator[None]:
+def env(
+    monkeypatch: pytest.MonkeyPatch,
+    postgres_url: str,
+    redis_url: str,
+    app_url: str,
+    system_url: str,
+) -> Iterator[None]:
     monkeypatch.setenv("DATABASE_URL", postgres_url)
+    monkeypatch.setenv("APP_DATABASE_URL", app_url)
+    monkeypatch.setenv("SYSTEM_DATABASE_URL", system_url)
     monkeypatch.setenv("REDIS_URL", redis_url)
-    get_settings.cache_clear()
-    engine_for.cache_clear()
+    monkeypatch.setenv("EMAIL_PROVIDER", "memory")
+    monkeypatch.setenv("POSTMARK_WEBHOOK_SECRET", "whsec-test")
+    monkeypatch.setenv("SIMULATE_INBOUND_ENABLED", "1")
+    _reset()
     yield
-    get_settings.cache_clear()
-    engine_for.cache_clear()
+    _reset()
 
 
 @pytest.fixture
-def client(env: None) -> TestClient:
+def client(migrated_env: None) -> TestClient:
     return TestClient(app)
 
 
@@ -65,4 +99,18 @@ def migrated_env(env: None, postgres_url: str) -> Iterator[None]:
     command.upgrade(cfg, "head")
     with engine_for(postgres_url).begin() as conn:
         conn.execute(text("DELETE FROM system_heartbeat"))
+    yield
+
+
+@pytest.fixture
+def client_factory(migrated_env: None) -> Callable[[], TestClient]:
+    """Each call returns a fresh TestClient (own cookie jar) for multi-user scenarios."""
+    return lambda: TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _mail_and_celery() -> Iterator[None]:
+    MemoryProvider.sent.clear()
+    celery.conf.task_always_eager = True
+    celery.conf.task_eager_propagates = True
     yield

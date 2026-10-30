@@ -2,8 +2,14 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from resolveflow.api import audit as audit_api
+from resolveflow.api import auth as auth_api
+from resolveflow.api import members as members_api
+from resolveflow.api import public as public_api
+from resolveflow.api import tickets as tickets_api
+from resolveflow.api import webhooks as webhooks_api
 from resolveflow.config import get_settings
-from resolveflow.db import engine_for
+from resolveflow.db import app_engine
 from resolveflow.health import check_db, check_redis, check_scheduler
 
 api = APIRouter(prefix="/api")
@@ -28,7 +34,7 @@ def live() -> dict[str, str]:
 @api.get("/health/ready")
 def ready() -> JSONResponse:
     settings = get_settings()
-    checks = [check_db(engine_for(settings.database_url)), check_redis(settings.redis_url)]
+    checks = [check_db(app_engine()), check_redis(settings.redis_url)]
     ok = all(c.ok for c in checks)
     return JSONResponse(
         status_code=200 if ok else 503,
@@ -40,7 +46,7 @@ def ready() -> JSONResponse:
 def system() -> SystemOut:
     """Informational: always 200; readiness does not depend on the scheduler."""
     settings = get_settings()
-    engine = engine_for(settings.database_url)
+    engine = app_engine()
     checks = [check_db(engine), check_redis(settings.redis_url), check_scheduler(engine)]
     return SystemOut(
         status="ok" if all(c.ok for c in checks) else "degraded",
@@ -50,3 +56,9 @@ def system() -> SystemOut:
 
 app = FastAPI(title="ResolveFlow")
 app.include_router(api)
+app.include_router(auth_api.router)
+app.include_router(audit_api.router)
+app.include_router(members_api.router)
+app.include_router(public_api.router)
+app.include_router(tickets_api.router)
+app.include_router(webhooks_api.router)
