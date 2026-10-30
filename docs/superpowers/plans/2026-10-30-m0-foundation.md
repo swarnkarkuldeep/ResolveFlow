@@ -149,11 +149,10 @@ CONTRIBUTING.md  README.md (update)
 **Interfaces:**
 - Produces: workflow with jobs `backend` (ruff, mypy, pytest using postgres:16 and redis:7 service containers via `TEST_DATABASE_URL`/`TEST_REDIS_URL`), `frontend` (npm ci, lint, tsc, vitest, build), `compose-smoke` (build images, `docker compose up -d`, `wait_for_health.py` on `/api/health/ready`, assert `/api/health/system` scheduler ok within 90 s, dump logs on failure). Triggers: push to any branch, PR to `main`.
 
-- [ ] **Step 1:** push branch and open a draft PR to observe CI failing before the workflow exists (no checks reported).
-- [ ] **Step 2:** write workflow and docs.
-- [ ] **Step 3: Run** `git push -u origin m0-foundation`. Expected: all three jobs green on the PR.
-- [ ] **Step 4: Verify** a deliberately broken commit (e.g., a failing test) turns the PR red, then revert it.
-- [ ] **Step 5: Commit** `ci: add backend, frontend and compose smoke workflows; contributing guide`.
+- [ ] **Step 1:** write workflow and docs.
+- [ ] **Step 2: Run** `git push -u origin m0-foundation`. Expected: all three jobs green.
+- [ ] **Step 3: Verify** the required checks (`backend`, `frontend`, `compose-smoke`) are all reported and passing on the PR.
+- [ ] **Step 4: Commit** `ci: add backend, frontend and compose smoke workflows; contributing guide`.
 
 ### Task 8: Phase completion and merge
 
@@ -168,6 +167,7 @@ CONTRIBUTING.md  README.md (update)
 
 ## Self-Review
 
-- **Spec coverage:** §4 stack ✔ (T1–T5); §5 processes separate ✔ (T5); §9 `acks_late`/`reject_on_worker_lost`, health endpoints, self-visible scheduler ✔ (T2–T3); §10 one-click Docker, Mailpit, `.env.example`, `start.sh`/Makefile ✔ (T5–T6); §12 M0 repo/Docker/CI/skeletons/OpenAPI client ✔ (T1–T7); §16 git workflow ✔ (T7–T8). Deliberately out of M0: auth, tenancy/RLS roles, outbox, seed script (M1; `start` has no seed step until the seed module exists).
+- **Spec coverage:** §4 stack ✔ (T1–T5); §5 processes separate ✔ (T5); §9 `acks_late`/`reject_on_worker_lost`, health endpoints, self-visible scheduler ✔ (T2–T3); §10 one-click Docker, Mailpit, `.env.example`, `start.sh`/Makefile ✔ (T5–T6); §12 M0 repo/Docker/CI/skeletons/OpenAPI client ✔ (T1–T7); §16 git workflow ✔ (T7–T8). Deliberately out of M0: auth, tenancy/RLS roles, outbox, seed script (M1; M0 starts with an empty database, and `start.bat`/`start.sh` get an automatic seed step only when the seed module is implemented in M1).
+- **Seeding:** M0 ships no seed step; the scripts and README say the database starts empty. Automatic seeding is introduced with the seed module in M1.
 - **Type consistency:** `CheckResult(name, ok, detail)` identical in T2, T3 and the frontend type in T4; `system_heartbeat` defined in T2 migration and used in T3.
 - **Proportion:** plan is signatures, tests and verification commands; no function bodies.
