@@ -63,13 +63,10 @@ def workspace_analytics(ctx: ServiceCtx, days: int) -> dict[str, Any]:
 
     by_day = s.execute(
         text(
-            "select d::date as day, "
+            "with " + _RESOLVED_CTE + "select d::date as day, "
             "(select count(*) from tickets t where t.workspace_id = :w and "
             "  (t.created_at at time zone 'utc')::date = d::date) as created, "
-            "(select count(*) from audit_log a join tickets t on t.id = a.entity_id and t.workspace_id = a.workspace_id "
-            "  where a.workspace_id = :w and a.entity_type = 'ticket' and a.action = 'ticket.updated' "
-            "  and a.after ->> 'status' in ('resolved', 'closed') and t.status in ('resolved', 'closed') "
-            "  and (a.created_at at time zone 'utc')::date = d::date) as resolved "
+            "(select count(*) from resolved r where (r.created_at at time zone 'utc')::date = d::date) as resolved "
             "from generate_series(cast(:since as date), cast(:since as date) + (:days - 1), interval '1 day') d order by d"
         ),
         p,
@@ -90,9 +87,9 @@ def workspace_analytics(ctx: ServiceCtx, days: int) -> dict[str, Any]:
             + _RESOLVED_CTE
             + ", mine as (select assignee_id, id from tickets where workspace_id = :w and assignee_id is not null "
             "  and created_at >= :since) "
-            "select u.name, count(m.id) as assigned, count(r.ticket_id) as resolved "
+            "select u.id, u.name, count(m.id) as assigned, count(r.ticket_id) as resolved "
             "from mine m join users u on u.id = m.assignee_id "
-            "left join resolved r on r.ticket_id = m.id group by u.name order by assigned desc, u.name"
+            "left join resolved r on r.ticket_id = m.id group by u.id, u.name order by assigned desc, u.name"
         ),
         p,
     ).all()
@@ -128,6 +125,7 @@ def workspace_analytics(ctx: ServiceCtx, days: int) -> dict[str, Any]:
         "by_priority": [{"priority": r.k, "count": r.n} for r in counts("priority")],
         "by_channel": [{"channel": r.k, "count": r.n} for r in counts("channel")],
         "by_agent": [
-            {"agent": r.name, "assigned": r.assigned, "resolved": r.resolved} for r in agents
+            {"id": str(r.id), "agent": r.name, "assigned": r.assigned, "resolved": r.resolved}
+            for r in agents
         ],
     }

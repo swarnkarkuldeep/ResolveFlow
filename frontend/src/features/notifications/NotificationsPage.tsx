@@ -7,7 +7,7 @@ import { api } from '../../lib/api'
 import { relativeTime } from '../../lib/format'
 import type { AppNotification, Delivery, NotificationKind, NotificationPref } from '../../lib/types'
 import { Button, Spinner } from '../../ui'
-import { useNotifications } from './queries'
+import { useNotifications, useUnreadCount } from './queries'
 
 const KIND_LABEL: Record<NotificationKind, { name: string; hint: string }> = {
   assigned: { name: 'A ticket is assigned to me', hint: 'Someone or a rule hands you a ticket.' },
@@ -145,7 +145,7 @@ export function NotificationsPage() {
     if (!n.read) markRead.mutate(n.id)
     if (n.ticket) navigate(`/inbox/${n.ticket.id}`)
   }
-  const unread = items.filter((n) => !n.read).length
+  const unread = useUnreadCount().data ?? items.filter((n) => !n.read).length
 
   return (
     <div className="h-full overflow-y-auto bg-paper">
@@ -161,6 +161,7 @@ export function NotificationsPage() {
             </Button>
           </div>
           {list.isPending && <Spinner label="Loading notifications" />}
+          {list.isError && <p className="text-danger">{list.error.message}</p>}
           {list.isSuccess && items.length === 0 && (
             <div className="py-6">
               <p className="font-medium">Nothing yet</p>

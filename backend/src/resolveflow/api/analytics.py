@@ -41,6 +41,13 @@ def customer_history(
         {"w": ctx.ws, "c": customer_id},
     ).all()
     items = [tk._item(r) for r in rows]
+    counts = ctx.session.execute(
+        text(
+            "select count(*) as total, count(*) filter (where status not in ('resolved', 'closed')) "
+            "as open from tickets where workspace_id = :w and requester_id = :c"
+        ),
+        {"w": ctx.ws, "c": customer_id},
+    ).one()
     return {
         "customer": {
             "id": str(c.id),
@@ -50,7 +57,7 @@ def customer_history(
         },
         "tickets": items,
         "stats": {
-            "total": len(items),
-            "open": sum(1 for i in items if i["status"] not in ("resolved", "closed")),
+            "total": counts.total,
+            "open": counts.open,
         },
     }

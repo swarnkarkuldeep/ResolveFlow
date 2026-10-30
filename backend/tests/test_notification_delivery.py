@@ -143,3 +143,49 @@ def test_deliveries_of_another_workspace_are_invisible_and_cannot_be_retried(
         other.get("/api/notification-deliveries", params={"status": "dead"}).json()["items"] == []
     )
     assert other.post(f"/api/notification-deliveries/{nid}/retry", {}).status_code == 404
+
+
+def test_a_crash_midway_never_re_mails_rows_that_were_already_sent(
+    client_factory: ClientFactory, postgres_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    t, _ = make_queued(client_factory)
+    owner, agent = t["owner"], t["agent"]
+    tk2 = new_ticket(owner, "Second")
+    owner.patch(f"/api/tickets/{tk2['id']}", {"assignee_id": owner.user_id})
+    owner.patch(f"/api/tickets/{tk2['id']}", {"assignee_id": agent.user_id})
+    ws = uuid.UUID(owner.workspace_id)
+
+    class Dies:
+        calls = 0
+
+        def send(self, **kw: Any) -> None:
+            Dies.calls += 1
+            if Dies.calls == 2:
+                raise SystemExit("worker killed")  # not an Exception: simulates a hard stop
+            MemoryProvider().send(**kw)
+
+    monkeypatch.setattr(delivery, "get_provider", lambda: Dies())
+    with pytest.raises(SystemExit):
+        delivery.deliver_due(system_engine(), workspace_id=ws)
+    with engine_for(postgres_url).connect() as conn:
+        statuses = sorted(
+            r.email_status
+            for r in conn.execute(
+                text(
+                    "select email_status from notifications where workspace_id = :w and email_status <> 'none'"
+                ),
+                {"w": ws},
+            )
+        )
+    assert statuses == ["sending", "sent"]  # the mailed row stays sent; the in-flight one is leased
+    # once its lease expires it is retried; the already-sent row is never mailed again
+    monkeypatch.setattr(delivery, "get_provider", lambda: MemoryProvider())
+    delivery.deliver_due(
+        system_engine(), now=datetime.now(UTC) + timedelta(minutes=6), workspace_id=ws
+    )
+    mails = [
+        m
+        for m in MemoryProvider.sent
+        if m["to"] == agent.email and "Assigned to you" in str(m["subject"])
+    ]
+    assert len(mails) == 2

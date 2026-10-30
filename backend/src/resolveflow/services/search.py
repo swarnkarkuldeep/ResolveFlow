@@ -1,6 +1,7 @@
 """Full-text ticket search over subjects and message bodies (Postgres tsvector, tenant-scoped)."""
 
 import html
+import re
 import uuid
 from typing import Any
 
@@ -10,6 +11,7 @@ from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
 from resolveflow.services import tickets as tk
 
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _START, _STOP = "", ""  # private-use markers, swapped for <mark> after escaping
 _HEADLINE = f"StartSel={_START}, StopSel={_STOP}, MaxFragments=1, MaxWords=24, MinWords=8"
 
@@ -48,7 +50,8 @@ def search_tickets(
     tag: str | None = None,
     limit: int = 25,
 ) -> list[dict[str, Any]]:
-    q = q.strip()[:200]
+    q = _CONTROL.sub("", q).strip()[:200]
+    tag = _CONTROL.sub("", tag) if tag else tag
     if not q:
         raise err(422, "empty_query", "Type something to search for.")
     where = ["t.workspace_id = :w", "(rk.subj_hit or rk.body is not null)"]

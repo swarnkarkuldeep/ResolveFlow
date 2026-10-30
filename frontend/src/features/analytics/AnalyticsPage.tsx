@@ -137,7 +137,7 @@ export function AnalyticsPage() {
                   </thead>
                   <tbody>
                     {d.by_agent.map((a) => (
-                      <tr key={a.agent} className="border-t border-line/70">
+                      <tr key={a.id} className="border-t border-line/70">
                         <td className="py-2">{a.agent}</td>
                         <td className="py-2 text-right tabular-nums">{a.assigned}</td>
                         <td className="py-2 text-right tabular-nums">{a.resolved}</td>

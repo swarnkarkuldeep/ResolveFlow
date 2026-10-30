@@ -142,7 +142,7 @@ const analytics = (over: Partial<Analytics> = {}): Analytics => ({
   by_day: [{ date: '2026-10-01', created: 3, resolved: 1 }],
   by_priority: [{ priority: 'high', count: 5 }],
   by_channel: [{ channel: 'email', count: 12 }],
-  by_agent: [{ agent: 'Lena Okafor', assigned: 6, resolved: 4 }],
+  by_agent: [{ id: 'u1', agent: 'Lena Okafor', assigned: 6, resolved: 4 }],
   ...over,
 })
 

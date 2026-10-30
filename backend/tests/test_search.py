@@ -83,3 +83,12 @@ def test_never_returns_another_workspaces_tickets_and_viewers_can_search(
     new_ticket(mine["owner"], "Visible quokka problem")
     for who in (mine["owner"], mine["viewer"]):
         assert [h["subject"] for h in search(who, "quokka")] == ["Visible quokka problem"]
+
+
+def test_control_characters_in_the_query_or_tag_never_cause_a_server_error(
+    client_factory: ClientFactory,
+) -> None:
+    owner = make_owner(client_factory)
+    new_ticket(owner, "Boiler")
+    assert owner.get("/api/search", params={"q": "boil\x00er"}).status_code == 200
+    assert owner.get("/api/search", params={"q": "boiler", "tag": "a\x00b"}).status_code == 200

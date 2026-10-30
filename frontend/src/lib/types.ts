@@ -266,7 +266,7 @@ export interface Analytics {
   by_day: { date: string; created: number; resolved: number }[]
   by_priority: { priority: Priority; count: number }[]
   by_channel: { channel: string; count: number }[]
-  by_agent: { agent: string; assigned: number; resolved: number }[]
+  by_agent: { id: string; agent: string; assigned: number; resolved: number }[]
 }
 
 export interface CustomerHistory {

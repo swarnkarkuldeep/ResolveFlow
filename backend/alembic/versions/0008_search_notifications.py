@@ -21,13 +21,13 @@ UP = [
     "ALTER TABLE notifications "
     "ADD COLUMN in_app boolean NOT NULL DEFAULT true, "
     "ADD COLUMN email_status text NOT NULL DEFAULT 'none' "
-    "CHECK (email_status IN ('none','queued','sent','dead','skipped')), "
+    "CHECK (email_status IN ('none','queued','sending','sent','dead','skipped')), "
     "ADD COLUMN email_attempts integer NOT NULL DEFAULT 0, "
     "ADD COLUMN email_last_error text, "
     "ADD COLUMN email_sent_at timestamptz, "
     "ADD COLUMN email_next_at timestamptz",
     "CREATE INDEX notifications_email_due ON notifications(email_next_at) "
-    "WHERE email_status = 'queued'",
+    "WHERE email_status IN ('queued', 'sending')",
     "CREATE INDEX notifications_email_problems ON notifications(workspace_id, created_at DESC) "
     "WHERE email_status = 'dead' OR email_attempts > 0",
     """CREATE TABLE notification_prefs (
