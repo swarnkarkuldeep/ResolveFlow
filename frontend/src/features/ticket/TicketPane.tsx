@@ -9,6 +9,7 @@ import { Button, Spinner } from '../../ui'
 import { useMembers } from '../inbox/queries'
 import { Composer } from './Composer'
 import { MergeDialog } from './MergeDialog'
+import { SlaPanel } from '../sla/SlaPanel'
 import { Properties } from './Properties'
 import { describeActivity, useActivity, useTicket } from './queries'
 import { Thread } from './Thread'
@@ -90,6 +91,8 @@ export function TicketPane({ ticketId, backTo }: { ticketId: string; backTo: To 
           <div className="mb-8 border-y border-line py-4">
             <Properties ticket={t} members={members.data ?? []} />
           </div>
+
+          <SlaPanel ticketId={t.id} />
 
           <Thread messages={t.messages} />
 
