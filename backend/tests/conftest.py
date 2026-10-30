@@ -1,14 +1,23 @@
 import os
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
 
+from alembic import command
 from resolveflow.config import get_settings
 from resolveflow.db import engine_for
 from resolveflow.main import app
+
+# Import-time defaults so modules that read settings at import (celery_app) can be collected;
+# fixtures below override these with real container URLs.
+os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://x:x@127.0.0.1:1/x")
+os.environ.setdefault("REDIS_URL", "redis://127.0.0.1:1/0")
 
 
 @pytest.fixture(scope="session")
@@ -44,3 +53,16 @@ def env(monkeypatch: pytest.MonkeyPatch, postgres_url: str, redis_url: str) -> I
 @pytest.fixture
 def client(env: None) -> TestClient:
     return TestClient(app)
+
+
+@pytest.fixture
+def migrated_env(env: None, postgres_url: str) -> Iterator[None]:
+    """DB at head with an empty heartbeat table."""
+    backend = Path(__file__).resolve().parents[1]
+    cfg = Config(str(backend / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", postgres_url.replace("%", "%%"))
+    command.upgrade(cfg, "head")
+    with engine_for(postgres_url).begin() as conn:
+        conn.execute(text("DELETE FROM system_heartbeat"))
+    yield

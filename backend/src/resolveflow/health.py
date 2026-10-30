@@ -30,3 +30,20 @@ def check_redis(url: str) -> CheckResult:
         return CheckResult("redis", True, "ok")
     except Exception as exc:
         return CheckResult("redis", False, f"unreachable ({type(exc).__name__})")
+
+
+def check_scheduler(engine: Engine, max_age_s: int = 90) -> CheckResult:
+    try:
+        with engine.connect() as conn:
+            age = conn.execute(
+                text(
+                    "SELECT extract(epoch FROM now() - beat_at) FROM system_heartbeat WHERE id = 1"
+                )
+            ).scalar()
+    except Exception as exc:
+        return CheckResult("scheduler", False, f"unknown ({type(exc).__name__})")
+    if age is None:
+        return CheckResult("scheduler", False, "no heartbeat yet")
+    if age > max_age_s:
+        return CheckResult("scheduler", False, f"stale: {int(age)}s")
+    return CheckResult("scheduler", True, f"last beat {int(age)}s ago")

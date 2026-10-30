@@ -51,3 +51,7 @@ select = ["E", "F", "I", "B", "UP", "S"]
 strict = true
 python_version = "3.12"
 plugins = []
+
+[[tool.mypy.overrides]]
+module = "resolveflow.tasks.*"
+disallow_untyped_decorators = false
