@@ -1,5 +1,7 @@
 # Contributing
 
+Setup, testing and code conventions are in the [development guide](docs/DEVELOPMENT.md). This file covers the workflow.
+
 ## Workflow
 - `main` is always green and deployable. Never push to it directly.
 - One branch per phase/feature: `m<N>-<topic>` (e.g. `m1-auth-tickets`). Small Conventional Commits (`feat(backend): …`, `fix:`, `docs:`, `ci:`).
