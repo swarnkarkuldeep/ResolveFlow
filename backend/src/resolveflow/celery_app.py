@@ -8,7 +8,7 @@ celery = Celery(
     "resolveflow",
     broker=_settings.redis_url,
     backend=_settings.redis_url,
-    include=["resolveflow.tasks.system"],
+    include=["resolveflow.tasks.system", "resolveflow.tasks.email"],
 )
 celery.conf.update(
     task_acks_late=True,
