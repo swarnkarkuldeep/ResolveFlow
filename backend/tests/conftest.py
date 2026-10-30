@@ -77,6 +77,7 @@ def env(
     monkeypatch.setenv("SYSTEM_DATABASE_URL", system_url)
     monkeypatch.setenv("REDIS_URL", redis_url)
     monkeypatch.setenv("EMAIL_PROVIDER", "memory")
+    monkeypatch.setenv("POSTMARK_WEBHOOK_SECRET", "whsec-test")
     monkeypatch.setenv("SIMULATE_INBOUND_ENABLED", "1")
     _reset()
     yield

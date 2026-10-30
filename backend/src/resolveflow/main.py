@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from resolveflow.api import auth as auth_api
 from resolveflow.api import members as members_api
 from resolveflow.api import tickets as tickets_api
+from resolveflow.api import webhooks as webhooks_api
 from resolveflow.config import get_settings
 from resolveflow.db import app_engine
 from resolveflow.health import check_db, check_redis, check_scheduler
@@ -56,3 +57,4 @@ app.include_router(api)
 app.include_router(auth_api.router)
 app.include_router(members_api.router)
 app.include_router(tickets_api.router)
+app.include_router(webhooks_api.router)
