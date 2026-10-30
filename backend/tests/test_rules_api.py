@@ -265,3 +265,15 @@ def test_a_team_used_by_a_rule_cannot_be_deleted_until_the_rule_is_archived(
     assert blocked.status_code == 409 and blocked.json()["detail"]["code"] == "team_in_use"
     t["owner"].post(f"/api/rules/{r['id']}/archive", {})
     assert t["owner"].delete(f"/api/teams/{tm['id']}").status_code == 200
+
+
+def test_an_archived_rule_cannot_be_made_live_until_restored(
+    client_factory: ClientFactory, postgres_url: str
+) -> None:
+    owner = make_owner(client_factory)
+    a = create(owner, "A")
+    passing_test(postgres_url, owner.workspace_id, a["id"], 1, REFUND)
+    owner.post(f"/api/rules/{a['id']}/archive", {})
+    assert owner.post(f"/api/rules/{a['id']}/activate", {}).status_code == 409
+    owner.post(f"/api/rules/{a['id']}/restore", {})
+    assert owner.post(f"/api/rules/{a['id']}/activate", {}).status_code == 200

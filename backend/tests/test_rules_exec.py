@@ -428,3 +428,37 @@ def test_loading_rules_costs_one_query_per_event(
     finally:
         event.remove(app_engine(), "before_cursor_execute", spy)
     assert len(seen) <= 1
+
+
+def test_a_rule_that_matched_the_outer_event_does_not_fire_again_after_a_nested_event(
+    client_factory: ClientFactory, postgres_url: str
+) -> None:
+    owner = make_owner(client_factory)
+    live(
+        owner,
+        postgres_url,
+        "A",
+        when(
+            "status.changed",
+            "status",
+            "equals",
+            "open",
+            [{"type": "set_status", "value": "pending"}],
+        ),
+    )
+    live(
+        owner,
+        postgres_url,
+        "B",
+        when(
+            "status.changed",
+            "channel",
+            "in",
+            ["email", "form", "manual"],
+            [{"type": "notify", "target": "owners_admins"}],
+        ),
+    )
+    tk = new_ticket(owner, "Twice")
+    owner.patch(f"/api/tickets/{tk['id']}", {"status": "open"})
+    names = [e.name for e in executions(postgres_url, tk["id"])]
+    assert names.count("A") == 1 and names.count("B") == 1

@@ -275,6 +275,10 @@ def create_rule(ctx: ServiceCtx, name: str, defn: RuleDefinition) -> dict[str, A
 def update_rule(
     ctx: ServiceCtx, rule_id: uuid.UUID, name: str | None, defn: RuleDefinition | None
 ) -> dict[str, Any]:
+    ctx.session.execute(
+        text("select 1 from rules where id = :r and workspace_id = :w for update"),
+        {"r": rule_id, "w": ctx.ws},
+    )  # serialise concurrent edits so two writers never claim the same version number
     before = get_rule_row(ctx, rule_id)
     new_name = _clean_name(name) if name is not None else before["name"]
     version = before["current_version"]
@@ -318,13 +322,18 @@ def update_rule(
 
 def activate(ctx: ServiceCtx, rule_id: uuid.UUID, version: int | None) -> dict[str, Any]:
     rule = get_rule_row(ctx, rule_id)
+    if rule["status"] == "archived":
+        raise err(409, "archived", "Restore this automation before making it live.")
     target = version if version is not None else rule["current_version"]
     v = ctx.session.execute(
-        text("select content_hash from rule_versions where rule_id = :r and version = :v"),
+        text(
+            "select content_hash, definition from rule_versions where rule_id = :r and version = :v"
+        ),
         {"r": rule_id, "v": target},
     ).first()
     if not v:
         raise err(404, "not_found", "That version does not exist.")
+    validate_targets(ctx, RuleDefinition.model_validate(v.definition))
     tested = ctx.session.execute(
         text(
             "select 1 from rule_tests where rule_id = :r and content_hash = :h and passed "

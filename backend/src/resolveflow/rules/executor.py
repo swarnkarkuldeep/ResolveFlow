@@ -143,8 +143,9 @@ def _run(
         return
     users, teams = tester._names(ctx, result.actions)
     versions = {r.id: r.version for r in candidates}
+    # Mark every matched rule up front: a nested event started by an earlier rule must not re-fire a later one.
+    chain.fired.update((res.rule_id, str(ticket_id)) for res in matched)
     for res in matched:
-        chain.fired.add((res.rule_id, str(ticket_id)))
         execution_id = uuid.uuid4()
         rctx = RuleContext(ctx.session, ctx.ws, uuid.UUID(res.rule_id), ctx.request_id)
         outcomes: list[dict[str, Any]] = []
