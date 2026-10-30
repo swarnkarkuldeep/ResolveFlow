@@ -9,7 +9,7 @@ if not errorlevel 1 goto docker_ok
 set "DD=%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
 if not exist "!DD!" (
   echo Docker Desktop is not installed or not found. Install it from https://www.docker.com/products/docker-desktop
-  exit /b 1
+  goto fail
 )
 echo Docker is not running. Starting Docker Desktop...
 start "" "!DD!"
@@ -20,7 +20,7 @@ if not errorlevel 1 goto docker_ok
 set /a tries+=1
 if !tries! GEQ 60 (
   echo Docker Desktop failed to start within 2 minutes.
-  exit /b 1
+  goto fail
 )
 timeout /t 2 /nobreak >nul
 goto wait_docker
@@ -37,8 +37,8 @@ echo [2/4] Building and starting containers (first run takes a few minutes)...
 docker compose up -d --build
 if errorlevel 1 (
   echo.
-  echo Startup failed. If a port is already in use, change WEB_PORT / API_PORT / DB_PORT / REDIS_PORT / MAILPIT_UI_PORT in .env and run again.
-  exit /b 1
+  echo Startup failed. Run "docker compose logs" for details. If a port is already in use, change WEB_PORT / API_PORT / DB_PORT / REDIS_PORT / MAILPIT_UI_PORT in .env and run again.
+  goto fail
 )
 
 echo [3/4] Waiting for the API to become ready...
@@ -49,7 +49,7 @@ if not errorlevel 1 goto api_ok
 set /a tries+=1
 if !tries! GEQ 90 (
   echo API did not become ready. Run "docker compose logs api" to see why.
-  exit /b 1
+  goto fail
 )
 timeout /t 2 /nobreak >nul
 goto wait_api
@@ -57,6 +57,11 @@ goto wait_api
 :api_ok
 echo [4/4] Ready.
 echo   App:     http://localhost:%WEB_PORT%
-echo   Mailpit: http://localhost:8025
+echo   Mailpit: http://localhost:8025 (see MAILPIT_UI_PORT in .env)
 start "" "http://localhost:%WEB_PORT%"
 exit /b 0
+
+:fail
+echo.
+pause
+exit /b 1

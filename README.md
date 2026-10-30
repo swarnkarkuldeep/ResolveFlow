@@ -10,7 +10,7 @@ Double-click `start.bat`. It starts Docker Desktop if needed, builds and starts 
 - `stop.bat` stops the stack; `reset.bat` also **deletes all data**.
 - Linux/macOS/WSL: `./start.sh` or `make up`.
 - The database starts **empty**. Automatic seeding with demo data arrives with the seed module in M1.
-- Ports are configurable in `.env` (copied from `.env.example` on first run).
+- Ports are configurable in `.env` (host ports bind to 127.0.0.1 only; the DB is on 5433 to avoid clashing with a local Postgres) (copied from `.env.example` on first run).
 
 ## Layout
 `backend/` FastAPI + Celery (Python 3.12) · `frontend/` React + TypeScript · `docker-compose.yml` · `scripts/` · `docs/` (PRD, design, plans)
