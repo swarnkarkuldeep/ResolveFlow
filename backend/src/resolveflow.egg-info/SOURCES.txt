@@ -1,8 +1,0 @@
-pyproject.toml
-src/resolveflow.egg-info/PKG-INFO
-src/resolveflow.egg-info/SOURCES.txt
-src/resolveflow.egg-info/dependency_links.txt
-src/resolveflow.egg-info/requires.txt
-src/resolveflow.egg-info/top_level.txt
-tests/test_config.py
-tests/test_health.py

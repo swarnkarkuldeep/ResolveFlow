@@ -31,6 +31,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+  "ignore::DeprecationWarning:testcontainers.*",
+  "ignore::DeprecationWarning:starlette.*",
+  "ignore::DeprecationWarning:fastapi.*",
+]
 
 [tool.ruff]
 line-length = 100

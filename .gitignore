@@ -12,3 +12,4 @@ dist/
 .vscode/
 *.log
 .superpowers/
+*.egg-info/
