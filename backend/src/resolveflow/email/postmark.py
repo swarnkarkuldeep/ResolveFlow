@@ -1,3 +1,4 @@
+import hashlib
 import re
 from html.parser import HTMLParser
 from typing import Any
@@ -38,6 +39,16 @@ def html_to_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
+MAX_ID_CHARS = 998  # RFC 5322 line limit; longer values would overflow the unique index
+
+
+def cap_id(value: str) -> str:
+    """Message identifiers are opaque keys: hash the absurdly long ones instead of storing them."""
+    if len(value) <= MAX_ID_CHARS:
+        return value
+    return f"<h-{hashlib.sha256(value.encode()).hexdigest()}@hashed.invalid>"
+
+
 class PostmarkInbound:
     def parse(self, payload: dict[str, Any]) -> InboundMessage:
         headers = {
@@ -58,15 +69,15 @@ class PostmarkInbound:
         if not body.strip():
             body = html_to_text(str(payload.get("HtmlBody") or ""))
         message_id = headers.get("message-id") or f"<pm-{payload.get('MessageID', '')}@postmark>"
-        refs = headers.get("references", "").split()
+        refs = [cap_id(r) for r in headers.get("references", "").split()]
         return InboundMessage(
-            message_id=message_id.strip(),
+            message_id=cap_id(message_id.strip()),
             from_email=from_email,
             from_name=(sender.get("Name") or payload.get("FromName") or None),
             to_addresses=recipients,
             subject=str(payload.get("Subject") or "").strip(),
             text=body[:MAX_BODY_CHARS],
-            in_reply_to=headers.get("in-reply-to", "").strip() or None,
+            in_reply_to=cap_id(headers.get("in-reply-to", "").strip()) or None,
             references=refs,
             attachments_dropped=len(payload.get("Attachments") or []),
         )

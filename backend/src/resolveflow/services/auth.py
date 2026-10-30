@@ -13,9 +13,11 @@ from resolveflow.db import system_engine
 from resolveflow.errors import err
 from resolveflow.security import DUMMY_HASH, hash_password, new_token, verify_password
 from resolveflow.tenancy import tenant_session
+from resolveflow.textutil import clean_line
 
 SESSION_DAYS = 14
-LOGIN_LIMIT = 10
+LOGIN_LIMIT = 10  # failures per (ip, email)
+ACCOUNT_LOGIN_LIMIT = 30  # failures per account from anywhere, so a rotating IP cannot grind
 LOGIN_WINDOW_S = 15 * 60
 
 
@@ -55,6 +57,7 @@ def create_session(
 
 def signup(email: str, password: str, name: str, workspace_name: str) -> NewSession:
     """Bootstrap flow (no tenant exists yet), so it runs as rf_system."""
+    name, workspace_name = clean_line(name), clean_line(workspace_name)
     with Session(system_engine()) as s, s.begin():
         try:
             user_id = s.execute(
@@ -94,15 +97,17 @@ def signup(email: str, password: str, name: str, workspace_name: str) -> NewSess
 
 def login(email: str, password: str, ip: str) -> NewSession:
     key = f"rl:login:{ip}:{email.lower()}"
-    if ratelimit.peek(key) >= LOGIN_LIMIT:
+    account_key = f"rl:login-account:{email.lower()}"
+    if ratelimit.peek(key) >= LOGIN_LIMIT or ratelimit.peek(account_key) >= ACCOUNT_LOGIN_LIMIT:
         raise err(429, "rate_limited", "Too many sign-in attempts. Try again in 15 minutes.")
-    with tenant_session(None, None) as s:
+    with Session(system_engine()) as s, s.begin():  # rf_app cannot read password hashes
         row = s.execute(
             text("select id, password_hash, active from users where email = :e"), {"e": email}
         ).first()
     ok = verify_password(password, row.password_hash if row else DUMMY_HASH)
     if not (row and ok and row.active):
         ratelimit.count(key, LOGIN_WINDOW_S)
+        ratelimit.count(account_key, LOGIN_WINDOW_S)
         raise err(401, "invalid_credentials", "Email or password is incorrect.")
     ratelimit.reset(key)
     with tenant_session(None, row.id) as s:

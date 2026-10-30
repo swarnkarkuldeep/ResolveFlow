@@ -7,6 +7,7 @@ from resolveflow.celery_app import celery
 from resolveflow.config import get_settings
 from resolveflow.db import system_engine
 from resolveflow.email.outbound import get_provider
+from resolveflow.textutil import clean_line
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ STUCK_AFTER_SECONDS = 60
 )
 def send_invitation(to: str, workspace_name: str, inviter_name: str, token: str) -> None:
     link = f"{get_settings().public_base_url}/accept-invite?token={token}"
+    workspace_name, inviter_name = clean_line(workspace_name), clean_line(inviter_name)
     get_provider().send(
         to=to,
         subject=f"{inviter_name} invited you to {workspace_name} on ResolveFlow",
@@ -62,7 +64,10 @@ def send_outbound_message(message_id: str) -> None:
         if row.in_reply_to:
             headers["In-Reply-To"] = row.in_reply_to
             headers["References"] = row.in_reply_to
-        subject = row.subject if row.subject.lower().startswith("re:") else f"Re: {row.subject}"
+        clean_subject = clean_line(row.subject)
+        subject = (
+            clean_subject if clean_subject.lower().startswith("re:") else f"Re: {clean_subject}"
+        )
         try:
             get_provider().send(
                 to=row.to_email,

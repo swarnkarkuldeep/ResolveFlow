@@ -2,7 +2,7 @@ import uuid
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Response
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from resolveflow.api.auth import _set_cookie
@@ -34,9 +34,9 @@ class MemberPatch(BaseModel):
 
 
 class AcceptIn(BaseModel):
-    token: str
-    name: str
-    password: str
+    token: str = Field(max_length=200)
+    name: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=10, max_length=200)
 
 
 @router.get("/members")

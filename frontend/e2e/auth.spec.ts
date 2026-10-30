@@ -24,7 +24,7 @@ test('a wrong password gets one plain message and no hint about which field was 
 
 test('the demo owner can sign in and sees the seeded inbox', async ({ page }) => {
   await login(page, 'owner')
-  await expect(page.getByRole('link', { name: /Password reset email missing|Menu PDF out of date|Simulated hello/ }).first()).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Tickets' }).getByRole('listitem').first()).toBeVisible()
   expect(DEMO_PASSWORD.length).toBeGreaterThan(9)
 })
 

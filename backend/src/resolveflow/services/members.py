@@ -117,12 +117,16 @@ def update_member(
     new_role = role or m.role
     new_active = m.active if active is None else active
     if m.role == "owner" and m.active and (new_role != "owner" or not new_active):
-        owners = ctx.session.execute(
-            text(
-                "select count(*) from memberships where workspace_id = :w and role = 'owner' and active"
-            ),
-            {"w": ctx.ws},
-        ).scalar_one()
+        # Lock every active owner row so two concurrent demotions cannot both see "2 owners".
+        owners = len(
+            ctx.session.execute(
+                text(
+                    "select user_id from memberships where workspace_id = :w and role = 'owner' "
+                    "and active order by user_id for update"
+                ),
+                {"w": ctx.ws},
+            ).all()
+        )
         if owners <= 1:
             raise err(409, "last_owner", "A workspace needs at least one owner.")
     ctx.session.execute(

@@ -148,6 +148,12 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
+  // Parents pass a fresh inline onClose on every render; keep the latest in a ref so the focus
+  // setup below runs once, on mount, instead of yanking focus back while someone is typing.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
@@ -157,7 +163,7 @@ export function Dialog({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
       }
       if (e.key === 'Tab' && node) {
         const items = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE))
@@ -178,7 +184,7 @@ export function Dialog({
       document.removeEventListener('keydown', onKey, true)
       previous?.focus()
     }
-  }, [onClose])
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-[12vh]" onMouseDown={onClose}>

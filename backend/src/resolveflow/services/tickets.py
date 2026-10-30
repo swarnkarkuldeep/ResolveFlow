@@ -11,6 +11,7 @@ from sqlalchemy import text
 from resolveflow import audit
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
+from resolveflow.textutil import clean_line
 
 STATUSES = ("new", "open", "pending", "resolved", "closed")
 PRIORITIES = ("low", "normal", "high", "urgent")
@@ -118,6 +119,8 @@ def create_ticket(
     channel: str = "manual",
     message_id: str | None = None,
 ) -> dict[str, Any]:
+    subject = clean_line(subject) or "(no subject)"
+    requester_name = clean_line(requester_name) if requester_name else None
     customer_id = _upsert_customer(ctx, requester_email, requester_name)
     number = ctx.session.execute(
         text(
