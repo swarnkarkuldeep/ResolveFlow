@@ -12,6 +12,7 @@ from resolveflow.db import system_engine
 from resolveflow.email.inbound import InboundMessage
 from resolveflow.email.threading import match_ticket, parse_recipients
 from resolveflow.services import tickets as ticket_svc
+from resolveflow.sla import service as sla
 
 Status = Literal["created", "appended", "duplicate", "ignored"]
 
@@ -123,6 +124,10 @@ def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> In
     ).first()
     if not inserted:
         return IngestResult("duplicate")
+    old_status = s.execute(
+        text("select status from tickets where id = :t and workspace_id = :w"),
+        {"t": ticket_id, "w": ctx.ws},
+    ).scalar_one()
     s.execute(
         text(
             "update tickets set last_activity_at = now(), "
@@ -131,6 +136,8 @@ def _append(ctx: SystemContext, ticket_id: uuid.UUID, msg: InboundMessage) -> In
         ),
         {"t": ticket_id, "w": ctx.ws},
     )
+    new_status = "open" if old_status in ("resolved", "pending") else old_status
+    sla.on_status_changed(ctx, ticket_id, old_status, new_status)
     audit.record(
         s,
         workspace_id=ctx.ws,

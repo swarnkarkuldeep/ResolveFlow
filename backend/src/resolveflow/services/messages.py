@@ -7,6 +7,7 @@ from resolveflow import audit
 from resolveflow.config import get_settings
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
+from resolveflow.sla import service as sla
 
 
 def get_message(ctx: ServiceCtx, message_id: uuid.UUID) -> dict[str, Any]:
@@ -89,6 +90,9 @@ def add_message(
         ),
         {"s": new_status, "i": ticket_id, "w": ctx.ws},
     )
+    sla.on_status_changed(ctx, ticket_id, ticket.status, new_status)
+    if kind == "public":
+        sla.on_agent_reply(ctx, ticket_id)
     audit.record(
         ctx.session,
         workspace_id=ctx.ws,

@@ -11,6 +11,7 @@ from sqlalchemy import text
 from resolveflow import audit
 from resolveflow.context import ServiceCtx
 from resolveflow.errors import err
+from resolveflow.sla import service as sla
 from resolveflow.textutil import clean_line
 
 STATUSES = ("new", "open", "pending", "resolved", "closed")
@@ -162,6 +163,7 @@ def create_ticket(
         after={"number": number, "subject": subject, "channel": channel, "priority": priority},
         request_id=ctx.request_id,
     )
+    sla.on_created(ctx, ticket_id)
     return get_ticket(ctx, ticket_id, with_messages=False)
 
 
@@ -367,6 +369,10 @@ def update_ticket(ctx: ServiceCtx, ticket_id: uuid.UUID, fields: dict[str, Any])
             after=after,
             request_id=ctx.request_id,
         )
+        if "status" in sets:
+            sla.on_status_changed(ctx, ticket_id, row.status, sets["status"])
+        if "priority" in sets:
+            sla.on_priority_changed(ctx, ticket_id, row.priority, sets["priority"])
     return get_ticket(ctx, ticket_id, with_messages=False)
 
 
@@ -475,6 +481,10 @@ def merge(ctx: ServiceCtx, source_id: uuid.UUID, into_id: uuid.UUID) -> dict[str
             "b": f"Merged ticket #{rows[source_id].number} into this one.",
         },
     )
+    source_status = ctx.session.execute(
+        text("select status from tickets where id = :s and workspace_id = :w"),
+        {"s": source_id, "w": ctx.ws},
+    ).scalar_one()
     ctx.session.execute(
         text(
             "update tickets set status = 'closed', merged_into_id = :t, last_activity_at = now() "
@@ -482,6 +492,8 @@ def merge(ctx: ServiceCtx, source_id: uuid.UUID, into_id: uuid.UUID) -> dict[str
         ),
         {"t": into_id, "s": source_id, "w": ctx.ws},
     )
+    sla.on_status_changed(ctx, source_id, source_status, "closed")
+    sla.recompute(ctx, into_id)
     ctx.session.execute(
         text("update tickets set last_activity_at = now() where id = :t and workspace_id = :w"),
         {"t": into_id, "w": ctx.ws},
