@@ -301,7 +301,7 @@ export function SlaSettingsPage() {
       <div className="mx-auto max-w-[760px] px-6 pb-0 pt-8">
         <h1 className="text-[24px] font-semibold tracking-tight">Service levels</h1>
         <p className="mb-6 mt-1 max-w-[60ch] text-[14px] text-slate">
-          The deadlines every ticket is measured against. Changes apply to open tickets straight away.
+          The deadlines every ticket is measured against. Changes reach open tickets within a minute or so.
         </p>
         {settings.isPending && <Spinner label="Loading service levels" />}
         {settings.isError && <p className="text-danger">{settings.error.message}</p>}

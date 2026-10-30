@@ -76,7 +76,7 @@ def _open_intervals(
     day = start.astimezone(cal.tz).date()
     for _ in range(_MAX_DAYS):
         if day not in cal.holidays:
-            for open_t, close_t in cal.weekly.get(day.weekday(), []):
+            for open_t, close_t in sorted(cal.weekly.get(day.weekday(), [])):
                 a = datetime.combine(day, open_t, tzinfo=cal.tz).astimezone(UTC)
                 b = datetime.combine(day, close_t, tzinfo=cal.tz).astimezone(UTC)
                 if b <= start:

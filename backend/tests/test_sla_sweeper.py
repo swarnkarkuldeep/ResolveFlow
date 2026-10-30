@@ -133,30 +133,28 @@ def test_cold_start_after_downtime_catches_up_everything_overdue_in_order(
     assert run(day(6, 13), owner).thresholds == 0
 
 
-def test_a_crash_mid_batch_leaves_no_partial_state_and_the_next_sweep_finishes(
+def test_an_ordinary_error_on_one_ticket_does_not_stop_the_others(
     client_factory: ClientFactory,
     postgres_url: str,
     clock: dict[str, datetime],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     owner = make_owner(client_factory)
-    tickets = [new_ticket(owner, f"Crash {i}") for i in range(3)]
+    tickets = [new_ticket(owner, f"Isolated {i}") for i in range(3)]
     real = sweeper._process_ticket
     calls = {"n": 0}
 
     def flaky(ctx: Any, ticket: Any, now: datetime) -> int:
         calls["n"] += 1
         if calls["n"] == 2:
-            raise RuntimeError("worker killed")
+            raise RuntimeError("bad ticket")
         return real(ctx, ticket, now)
 
     with monkeypatch.context() as m:
         m.setattr(sweeper, "_process_ticket", flaky)
-        with pytest.raises(RuntimeError):
-            run(day(3, 12), owner)
-    for t in tickets:
-        assert threshold_events(postgres_url, t["id"]) == []  # the whole batch rolled back
-    assert run(day(3, 12), owner).thresholds == 3 * 2
+        run(day(3, 12), owner)
+    healthy = [t for t in tickets if threshold_events(postgres_url, t["id"])]
+    assert len(healthy) == 2  # the failing ticket is parked; the other two completed
 
 
 def test_editing_the_policy_reschedules_open_tickets_and_keeps_recorded_breaches(

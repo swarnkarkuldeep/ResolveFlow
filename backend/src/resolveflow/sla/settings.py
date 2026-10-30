@@ -14,6 +14,7 @@ Priority = Literal["low", "normal", "high", "urgent"]
 Day = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 Clock = Annotated[str, Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
 MAX_MINUTES = 525_600  # one year
+MAX_WEEKS = 100  # a target may span at most this many weeks of business hours
 
 
 class Target(BaseModel):
@@ -41,6 +42,27 @@ class SlaSettingsIn(BaseModel):
     timezone: str = Field(max_length=64)
     schedule: dict[Day, list[Range]]
     holidays: list[date] = Field(max_length=100)
+
+    @model_validator(mode="after")
+    def _can_produce_deadlines(self) -> "SlaSettingsIn":
+        if not self.business_hours_only:
+            return self
+        weekly = sum(
+            (_t(r.end).hour * 60 + _t(r.end).minute) - (_t(r.start).hour * 60 + _t(r.start).minute)
+            for ranges in self.schedule.values()
+            for r in ranges
+        )
+        if weekly <= 0:
+            raise ValueError(
+                "Add opening hours for at least one day, or turn off 'Count business hours only'."
+            )
+        longest = max(t.resolution_minutes for t in self.targets.values()) if self.targets else 0
+        if longest > weekly * MAX_WEEKS:
+            raise ValueError(
+                f"A target is longer than {MAX_WEEKS} weeks of your business hours. "
+                "Shorten it or add opening hours."
+            )
+        return self
 
     @field_validator("targets")
     @classmethod
@@ -90,7 +112,10 @@ def normalized(body: SlaSettingsIn) -> dict[str, Any]:
         "business_hours_only": body.business_hours_only,
         "targets": {p: tgt[p].model_dump() for p in PRIORITIES},
         "timezone": body.timezone,
-        "schedule": {d: [r.model_dump() for r in sched.get(d, [])] for d in DAYS},
+        "schedule": {
+            d: [r.model_dump() for r in sorted(sched.get(d, []), key=lambda r: (r.start, r.end))]
+            for d in DAYS
+        },
         "holidays": sorted({h.isoformat() for h in body.holidays}),
     }
 

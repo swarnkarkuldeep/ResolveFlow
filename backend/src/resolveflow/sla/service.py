@@ -5,6 +5,7 @@ hand and `ticket_sla` can always be rebuilt (see `recompute` / `backfill_events`
 """
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
@@ -16,6 +17,8 @@ from sqlalchemy import text
 from resolveflow.context import ServiceCtx
 from resolveflow.sla.defaults import DAYS, create_defaults
 from resolveflow.sla.engine import Calendar, Pause, compute_due, threshold_instant
+
+log = logging.getLogger(__name__)
 
 WARN_FRACTION = 0.75
 DONE = ("resolved", "closed")
@@ -46,7 +49,7 @@ def _calendar(tz: str, weekly: dict[str, list[dict[str, str]]], holidays: list[d
     return Calendar(
         ZoneInfo(tz),
         {
-            i: [(t(r["start"]), t(r["end"])) for r in weekly.get(day, [])]
+            i: sorted((t(r["start"]), t(r["end"])) for r in weekly.get(day, []))
             for i, day in enumerate(DAYS)
         },
         frozenset(holidays),
@@ -112,7 +115,7 @@ class Derived:
     res_met_at: datetime | None
 
 
-def derive(events: list[Any], created_at: datetime) -> Derived:
+def derive(events: list[Any], created_at: datetime, status: str | None = None) -> Derived:
     start_at = next((e.at for e in events if e.kind == "started"), created_at)
     res_start = start_at
     pauses: list[Pause] = []
@@ -132,6 +135,14 @@ def derive(events: list[Any], created_at: datetime) -> Derived:
         elif e.kind == "reopened":
             res_met_at = None
             res_start = e.at
+    # Reconcile with the ticket's real status: events can arrive out of order across processes, so
+    # the status (written transactionally with the ticket) wins over an orphan pause or resume.
+    last_at = events[-1].at if events else created_at
+    if status == "pending" and open_pause is None:
+        open_pause = last_at
+    elif status is not None and status != "pending" and open_pause is not None:
+        pauses.append((open_pause, max(open_pause, last_at)))
+        open_pause = None
     if open_pause is not None:
         pauses.append((open_pause, None))
     return Derived(start_at, res_start, pauses, fr_met_at, res_met_at)
@@ -151,18 +162,32 @@ class Computed:
     paused_at: datetime | None
 
 
+def _safe(fn: Any, start: datetime, target: int | None, *rest: Any) -> datetime | None:
+    """Deadline maths must never take a ticket write (or a sweep) down: a bad calendar means no deadline."""
+    if not target:
+        return None
+    try:
+        result: datetime | None = fn(start, target, *rest)
+        return result
+    except ValueError:
+        log.warning("cannot compute an SLA deadline for this calendar", exc_info=True)
+        return None
+
+
 def compute(ctx: ServiceCtx, ticket_id: uuid.UUID) -> Computed:
     """Pure derivation of a ticket's clocks from its events and the workspace policy."""
     ticket = ctx.session.execute(
-        text("select priority, created_at from tickets where id = :t and workspace_id = :w"),
+        text(
+            "select priority, status, created_at from tickets where id = :t and workspace_id = :w"
+        ),
         {"t": ticket_id, "w": ctx.ws},
     ).one()
     cfg = load_config(ctx)
     events = ctx.session.execute(
-        text("select kind, at from sla_events where ticket_id = :t order by at, id"),
+        text("select kind, at from sla_events where ticket_id = :t order by at, seq"),
         {"t": ticket_id},
     ).all()
-    d = derive(list(events), ticket.created_at)
+    d = derive(list(events), ticket.created_at, ticket.status)
     target = cfg.targets.get(ticket.priority) if cfg.enabled else None
     fr_target = target["first_response_minutes"] if target else None
     res_target = target["resolution_minutes"] if target else None
@@ -174,14 +199,10 @@ def compute(ctx: ServiceCtx, ticket_id: uuid.UUID) -> Computed:
         priority=ticket.priority,
         fr_target=fr_target,
         res_target=res_target,
-        fr_due=compute_due(d.start_at, fr_target, cal, d.pauses) if fr_target else None,
-        res_due=compute_due(d.res_start, res_target, cal, d.pauses) if res_target else None,
-        fr_warn=threshold_instant(d.start_at, fr_target, WARN_FRACTION, cal, d.pauses)
-        if fr_target
-        else None,
-        res_warn=threshold_instant(d.res_start, res_target, WARN_FRACTION, cal, d.pauses)
-        if res_target
-        else None,
+        fr_due=_safe(compute_due, d.start_at, fr_target, cal, d.pauses),
+        res_due=_safe(compute_due, d.res_start, res_target, cal, d.pauses),
+        fr_warn=_safe(threshold_instant, d.start_at, fr_target, WARN_FRACTION, cal, d.pauses),
+        res_warn=_safe(threshold_instant, d.res_start, res_target, WARN_FRACTION, cal, d.pauses),
         paused_at=paused_at,
     )
 
@@ -193,23 +214,48 @@ def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None
     d = c.d
     flags = ctx.session.execute(
         text(
-            "select fr_warned_at, fr_breached_at, res_warned_at, res_breached_at "
+            "select fr_warned_at, fr_breached_at, res_warned_at, res_breached_at, fr_cycle, res_cycle "
             "from ticket_sla where ticket_id = :t"
         ),
         {"t": ticket_id},
     ).first()
 
+    # A warning/breach belongs to one cycle (clock start + priority). Reopening or re-prioritising
+    # starts a new one, so stale flags are cleared; a policy edit keeps them (that history is real).
+    fr_cycle = f"{d.start_at.isoformat()}|{c.priority}"
+    res_cycle = f"{d.res_start.isoformat()}|{c.priority}"
+    fr_stale = bool(flags and flags.fr_cycle is not None and flags.fr_cycle != fr_cycle)
+    res_stale = bool(flags and flags.res_cycle is not None and flags.res_cycle != res_cycle)
+    if fr_stale:
+        ctx.session.execute(
+            text(
+                "update ticket_sla set fr_warned_at = null, fr_breached_at = null where ticket_id = :t"
+            ),
+            {"t": ticket_id},
+        )
+    if res_stale:
+        ctx.session.execute(
+            text(
+                "update ticket_sla set res_warned_at = null, res_breached_at = null where ticket_id = :t"
+            ),
+            {"t": ticket_id},
+        )
+    fr_warned = None if fr_stale or not flags else flags.fr_warned_at
+    fr_breached = None if fr_stale or not flags else flags.fr_breached_at
+    res_warned = None if res_stale or not flags else flags.res_warned_at
+    res_breached = None if res_stale or not flags else flags.res_breached_at
+
     candidates: list[datetime | None] = []
     if c.paused_at is None:
         if c.fr_target and d.fr_met_at is None:
-            if not (flags and flags.fr_warned_at):
+            if not fr_warned:
                 candidates.append(c.fr_warn)
-            if not (flags and flags.fr_breached_at):
+            if not fr_breached:
                 candidates.append(c.fr_due)
         if c.res_target and d.res_met_at is None:
-            if not (flags and flags.res_warned_at):
+            if not res_warned:
                 candidates.append(c.res_warn)
-            if not (flags and flags.res_breached_at):
+            if not res_breached:
                 candidates.append(c.res_due)
     upcoming = [x for x in candidates if x is not None]
 
@@ -217,13 +263,15 @@ def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None
         text(
             "insert into ticket_sla (ticket_id, workspace_id, policy_version, start_at, fr_target_min, "
             "res_target_min, fr_due_at, res_due_at, fr_met_at, res_met_at, paused_at, next_check_at, "
-            "updated_at) values (:t, :w, :v, :s, :frt, :rst, :frd, :rsd, :frm, :rsm, :p, :n, :now) "
+            "updated_at, fr_cycle, res_cycle) values (:t, :w, :v, :s, :frt, :rst, :frd, :rsd, :frm, "
+            ":rsm, :p, :n, :now, :frc, :rsc) "
             "on conflict (ticket_id) do update set policy_version = excluded.policy_version, "
             "start_at = excluded.start_at, fr_target_min = excluded.fr_target_min, "
             "res_target_min = excluded.res_target_min, fr_due_at = excluded.fr_due_at, "
             "res_due_at = excluded.res_due_at, fr_met_at = excluded.fr_met_at, "
             "res_met_at = excluded.res_met_at, paused_at = excluded.paused_at, "
-            "next_check_at = excluded.next_check_at, updated_at = excluded.updated_at"
+            "next_check_at = excluded.next_check_at, updated_at = excluded.updated_at, "
+            "fr_cycle = excluded.fr_cycle, res_cycle = excluded.res_cycle"
         ),
         {
             "t": ticket_id,
@@ -239,6 +287,8 @@ def recompute(ctx: ServiceCtx, ticket_id: uuid.UUID, now: datetime | None = None
             "p": c.paused_at,
             "n": min(upcoming) if upcoming else None,
             "now": now,
+            "frc": fr_cycle,
+            "rsc": res_cycle,
         },
     )
 

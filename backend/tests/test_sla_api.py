@@ -97,9 +97,13 @@ def test_queue_filters_for_at_risk_and_breached(
         late["id"],
         healthy["id"],
     }
-    owner.patch(f"/api/tickets/{late['id']}", {"priority": "urgent"})
     page = owner.get("/api/tickets?sla=at_risk&limit=1").json()
     assert len(page["items"]) == 1 and page["next_cursor"]
+    # Re-prioritising starts a fresh cycle, so the ticket leaves the at-risk view.
+    owner.patch(f"/api/tickets/{late['id']}", {"priority": "urgent"})
+    assert {i["id"] for i in owner.get("/api/tickets?sla=at_risk").json()["items"]} == {
+        healthy["id"]
+    }
     assert owner.get("/api/tickets?sla=nonsense").status_code == 422
 
 
