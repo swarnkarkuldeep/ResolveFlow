@@ -15,8 +15,10 @@ from typing import Any
 from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
+from resolveflow.context import SystemContext
 from resolveflow.db import system_engine
 from resolveflow.security import hash_password
+from resolveflow.sla import service as sla_service
 from resolveflow.sla.defaults import create_defaults
 
 DEMO_PASSWORD = "resolveflow-demo"  # noqa: S105 - documented demo credential, synthetic data only
@@ -452,6 +454,12 @@ def seed_demo(engine: Engine) -> SeedSummary:
             text("update workspaces set next_ticket_number = :n where id = :w"),
             {"n": total + 1, "w": ws},
         )
+        # Give every seeded ticket its SLA clock, reconstructed from the history just created.
+        sctx = SystemContext(s, ws)
+        for tid in ticket_ids:
+            if tid != source:
+                sla_service.backfill_events(sctx, tid)
+        sla_service.recompute(sctx, target)
         return _summary(s, ws)
 
 

@@ -58,6 +58,9 @@ def test_seed_creates_a_realistic_workspace(seeded) -> None:  # type: ignore[no-
         "tagged": "select count(*) from ticket_tags where workspace_id = :w",
         "assigned": "select count(*) from tickets where workspace_id = :w and assignee_id is not null",
         "audit": "select count(*) from audit_log where workspace_id = :w",
+        "sla clocks": "select count(*) from ticket_sla where workspace_id = :w and start_at is not null",
+        "sla met": "select count(*) from ticket_sla where workspace_id = :w and fr_met_at is not null",
+        "sla policy": "select count(*) from sla_policies where workspace_id = :w",
     }.items():
         assert _count(url, sql, w=ws) > 0, label
 
