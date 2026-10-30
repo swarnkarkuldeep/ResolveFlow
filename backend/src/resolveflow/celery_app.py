@@ -13,6 +13,7 @@ celery = Celery(
         "resolveflow.tasks.email",
         "resolveflow.tasks.sla",
         "resolveflow.tasks.notifications",
+        "resolveflow.tasks.retention",
     ],
 )
 celery.conf.update(
@@ -23,6 +24,7 @@ celery.conf.update(
     beat_schedule={
         "heartbeat": {"task": "resolveflow.tasks.system.heartbeat", "schedule": 30.0},
         "sla-sweep": {"task": "resolveflow.tasks.sla.sweep", "schedule": 60.0},
+        "retention": {"task": "resolveflow.tasks.retention.apply", "schedule": 3600.0},
         "deliver-notifications": {
             "task": "resolveflow.tasks.notifications.deliver",
             "schedule": 30.0,

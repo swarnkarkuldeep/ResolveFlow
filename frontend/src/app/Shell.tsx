@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Inbox, LogOut, Moon, Plug, ScrollText, Search, Sun, Timer, Users, Workflow } from 'lucide-react'
+import { BarChart3, Bell, Inbox, LogOut, Moon, Plug, ScrollText, Search, ShieldCheck, Sun, Timer, Users, Workflow } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
@@ -16,6 +16,7 @@ const ITEMS = [
   { to: '/automations', label: 'Automations', icon: Workflow, perm: 'rule:read' },
   { to: '/analytics', label: 'Analytics', icon: BarChart3, perm: 'analytics:read' },
   { to: '/service-levels', label: 'Service levels', icon: Timer, perm: 'settings:read' },
+  { to: '/privacy', label: 'Privacy', icon: ShieldCheck, perm: 'settings:read' },
   { to: '/audit', label: 'Audit log', icon: ScrollText, perm: 'audit:read' },
 ] as const
 

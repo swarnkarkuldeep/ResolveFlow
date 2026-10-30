@@ -10,6 +10,7 @@ from resolveflow.api import auth as auth_api
 from resolveflow.api import deliveries as deliveries_api
 from resolveflow.api import members as members_api
 from resolveflow.api import notifications as notifications_api
+from resolveflow.api import privacy as privacy_api
 from resolveflow.api import public as public_api
 from resolveflow.api import rules as rules_api
 from resolveflow.api import search as search_api
@@ -86,6 +87,7 @@ app.include_router(public_api.router)
 app.include_router(analytics_api.router)
 app.include_router(deliveries_api.router)
 app.include_router(notifications_api.router)
+app.include_router(privacy_api.router)
 app.include_router(rules_api.router)
 app.include_router(search_api.router)
 app.include_router(sla_api.router)
