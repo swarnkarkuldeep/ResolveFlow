@@ -148,6 +148,43 @@ def load_active_rules(ctx: ServiceCtx, exclude: uuid.UUID | None = None) -> list
     ]
 
 
+def ticket_executions(ctx: ServiceCtx, ticket_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Which rules ran on this ticket, newest first: the data behind the ticket's 'why' panel."""
+    exists = ctx.session.execute(
+        text("select 1 from tickets where id = :t and workspace_id = :w"),
+        {"t": ticket_id, "w": ctx.ws},
+    ).first()
+    if not exists:
+        raise err(404, "not_found", "Ticket not found.")
+    rows = ctx.session.execute(
+        text(
+            "select e.created_at, e.event, e.rule_id, e.rule_version, e.matched, e.actions, e.depth, r.name "
+            "from rule_executions e join rules r on r.id = e.rule_id "
+            "where e.ticket_id = :t and e.workspace_id = :w order by e.created_at desc, e.depth, e.id"
+        ),
+        {"t": ticket_id, "w": ctx.ws},
+    ).all()
+    return [
+        {
+            "at": r.created_at.isoformat(),
+            "event": r.event,
+            "rule": {"id": str(r.rule_id), "name": r.name, "version": r.rule_version},
+            "matched": r.matched,
+            "depth": r.depth,
+            "actions": [
+                {
+                    "type": a["type"],
+                    "text": a["text"],
+                    "status": a["status"],
+                    "reason": a.get("reason"),
+                }
+                for a in r.actions
+            ],
+        }
+        for r in rows
+    ]
+
+
 def get_rule_row(ctx: ServiceCtx, rule_id: uuid.UUID) -> dict[str, Any]:
     r = ctx.session.execute(text(_LIST_SQL + " and r.id = :r"), {"w": ctx.ws, "r": rule_id}).first()
     if not r:

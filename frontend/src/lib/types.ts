@@ -93,6 +93,12 @@ export interface Member {
   active: boolean
 }
 
+export interface Team {
+  id: string
+  name: string
+  members: { user_id: string; name: string; role: Role; active: boolean }[]
+}
+
 export interface Invitation {
   id: string
   email: string

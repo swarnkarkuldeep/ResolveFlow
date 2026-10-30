@@ -85,6 +85,13 @@ def record_test(
     return out
 
 
+@router.get("/tickets/{ticket_id}/rules")
+def ticket_rules(
+    ticket_id: uuid.UUID, ctx: RequestContext = Depends(require("ticket:read"))
+) -> list[dict[str, Any]]:
+    return svc.ticket_executions(ctx, ticket_id)
+
+
 @router.get("/rules/{rule_id}")
 def get_rule(
     rule_id: uuid.UUID, ctx: RequestContext = Depends(require("rule:read"))
