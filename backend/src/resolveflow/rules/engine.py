@@ -111,6 +111,7 @@ class RuleInput:
     name: str
     position: int
     definition: RuleDefinition
+    version: int = 0
 
 
 @dataclass

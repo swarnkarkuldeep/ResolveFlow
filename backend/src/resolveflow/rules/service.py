@@ -129,7 +129,7 @@ def load_active_rules(ctx: ServiceCtx, exclude: uuid.UUID | None = None) -> list
     """Active rules at their active versions, in execution order."""
     rows = ctx.session.execute(
         text(
-            "select r.id, r.name, r.position, v.definition from rules r "
+            "select r.id, r.name, r.position, r.active_version, v.definition from rules r "
             "join rule_versions v on v.rule_id = r.id and v.version = r.active_version "
             "where r.workspace_id = :w and r.status = 'active' "
             "and (cast(:ex as uuid) is null or r.id <> cast(:ex as uuid)) order by r.position, r.created_at"
@@ -142,6 +142,7 @@ def load_active_rules(ctx: ServiceCtx, exclude: uuid.UUID | None = None) -> list
             name=r.name,
             position=r.position,
             definition=RuleDefinition.model_validate(r.definition),
+            version=r.active_version,
         )
         for r in rows
     ]

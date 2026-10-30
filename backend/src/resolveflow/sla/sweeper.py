@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from resolveflow import audit
 from resolveflow.context import SystemContext
+from resolveflow.rules import executor as rules_exec
 from resolveflow.sla import service
 
 log = logging.getLogger(__name__)
@@ -69,6 +70,12 @@ def _process_ticket(ctx: SystemContext, ticket: Any, now: datetime) -> int:
                 ctx, ticket.ticket_id, "threshold", detail, at=instant, dedupe_key=key
             ):
                 recorded += 1
+                rules_exec.run_event(
+                    ctx,
+                    ticket.ticket_id,
+                    "sla.threshold",
+                    "warning" if level == "warning" else "breach",
+                )
                 audit.record(
                     ctx.session,
                     workspace_id=ctx.ws,

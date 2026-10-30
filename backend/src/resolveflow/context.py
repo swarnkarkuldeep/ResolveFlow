@@ -40,3 +40,25 @@ class SystemContext:
     @property
     def actor_id(self) -> None:
         return None
+
+
+@dataclass
+class RuleContext:
+    """Used while a rule applies its actions: changes are audited as the rule, not a person."""
+
+    session: Session
+    workspace_id: uuid.UUID
+    rule_id: uuid.UUID
+    request_id: str | None = None
+
+    @property
+    def ws(self) -> uuid.UUID:
+        return self.workspace_id
+
+    @property
+    def actor_type(self) -> Literal["rule"]:
+        return "rule"
+
+    @property
+    def actor_id(self) -> uuid.UUID:
+        return self.rule_id
