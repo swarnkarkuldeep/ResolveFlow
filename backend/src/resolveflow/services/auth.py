@@ -12,6 +12,7 @@ from resolveflow import audit, ratelimit
 from resolveflow.db import system_engine
 from resolveflow.errors import err
 from resolveflow.security import DUMMY_HASH, hash_password, new_token, verify_password
+from resolveflow.sla.defaults import create_defaults
 from resolveflow.tenancy import tenant_session
 from resolveflow.textutil import clean_line
 
@@ -82,6 +83,7 @@ def signup(email: str, password: str, name: str, workspace_name: str) -> NewSess
             text("insert into memberships (workspace_id, user_id, role) values (:w, :u, 'owner')"),
             {"w": ws_id, "u": user_id},
         )
+        create_defaults(s, ws_id)
         audit.record(
             s,
             workspace_id=ws_id,

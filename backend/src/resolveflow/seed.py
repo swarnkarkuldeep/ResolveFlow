@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from resolveflow.db import system_engine
 from resolveflow.security import hash_password
+from resolveflow.sla.defaults import create_defaults
 
 DEMO_PASSWORD = "resolveflow-demo"  # noqa: S105 - documented demo credential, synthetic data only
 SLUG = "brightwork"
@@ -239,6 +240,7 @@ def seed_demo(engine: Engine) -> SeedSummary:
             ),
             {"s": SLUG, "t": secrets.token_hex(8)},
         ).scalar_one()
+        create_defaults(s, ws)
         for role, uid in user_ids.items():
             s.execute(
                 text("insert into memberships (workspace_id, user_id, role) values (:w, :u, :r)"),
