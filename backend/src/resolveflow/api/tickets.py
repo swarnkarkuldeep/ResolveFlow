@@ -51,6 +51,16 @@ class MessageIn(BaseModel):
     set_pending: bool = False
 
 
+class BulkIn(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+    action: Literal["assign", "status", "priority", "add_tag"]
+    value: str | None = None
+
+
+class MergeIn(BaseModel):
+    into_id: uuid.UUID
+
+
 def _csv(value: str | None, allowed: tuple[str, ...], name: str) -> list[str] | None:
     if not value:
         return None
@@ -145,4 +155,22 @@ def add_message(
             send_outbound_message.delay(out["id"])
         except Exception:  # broker down: the row stays queued and the sweeper re-queues it
             log.warning("could not enqueue outbound email", exc_info=True)
+    return out
+
+
+@router.post("/tickets/bulk")
+def bulk(body: BulkIn, ctx: RequestContext = Depends(require("ticket:bulk"))) -> dict[str, Any]:
+    if body.action == "assign" and "ticket:assign" not in PERMS.get(ctx.role or "", frozenset()):
+        raise err(403, "forbidden", "You do not have permission to do that.")
+    out = svc.bulk_update(ctx, body.ids, action=body.action, value=body.value)
+    ctx.commit()
+    return out
+
+
+@router.post("/tickets/{ticket_id}/merge")
+def merge_ticket(
+    ticket_id: uuid.UUID, body: MergeIn, ctx: RequestContext = Depends(require("ticket:merge"))
+) -> dict[str, Any]:
+    out = svc.merge(ctx, ticket_id, body.into_id)
+    ctx.commit()
     return out
