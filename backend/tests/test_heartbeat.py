@@ -15,7 +15,8 @@ def _set_beat_age(url: str, seconds: int) -> None:
         conn.execute(text("DELETE FROM system_heartbeat"))
         conn.execute(
             text(
-                "INSERT INTO system_heartbeat (id, beat_at) VALUES (1, now() - make_interval(secs => :s))"
+                "INSERT INTO system_heartbeat (id, beat_at) "
+                "VALUES (1, now() - make_interval(secs => :s))"
             ),
             {"s": seconds},
         )
