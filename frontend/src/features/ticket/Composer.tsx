@@ -88,7 +88,7 @@ export function Composer({ ticketId }: { ticketId: string }) {
 
   return (
     <div className="rounded-panel border border-line bg-paper">
-      <div role="tablist" aria-label="Message type" className="flex gap-1 border-b border-line px-2 pt-2">
+      <div role="tablist" aria-label="Reply or note" className="flex gap-1 border-b border-line px-2 pt-2">
         {(
           [
             ['public', 'Reply'],

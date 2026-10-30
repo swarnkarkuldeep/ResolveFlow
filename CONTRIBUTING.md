@@ -16,4 +16,5 @@
 cd backend  && ruff check . && ruff format --check . && mypy src alembic && pytest -q
 cd frontend && npm run lint && npx tsc -b && npm test -- --run && npm run build
 ```
+End-to-end tests (`npm run e2e`, needs the stack running via `start.bat`; set `E2E_CHANNEL=chrome` to reuse an installed Chrome) drive the real UI against the real API, worker and Mailpit.
 Backend tests start real Postgres/Redis with testcontainers (Docker required) or use `TEST_DATABASE_URL`/`TEST_REDIS_URL`.

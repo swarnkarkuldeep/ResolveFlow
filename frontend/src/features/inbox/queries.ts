@@ -20,6 +20,9 @@ export function useTickets(filters: Filters) {
       return api<TicketPage>(`/api/tickets?${params.toString()}`)
     },
     getNextPageParam: (last) => last.next_cursor,
+    // A shared inbox: show what arrived while you were looking elsewhere, without a manual refresh.
+    staleTime: 0,
+    refetchInterval: 20_000,
   })
 }
 

@@ -7,5 +7,9 @@ const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:8000'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: { proxy: { '/api': apiTarget } },
-  test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
+    exclude: ['e2e/**', 'node_modules/**'],
+  },
 })
