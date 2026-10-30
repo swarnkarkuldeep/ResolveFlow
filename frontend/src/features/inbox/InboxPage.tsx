@@ -1,4 +1,4 @@
-import { Keyboard } from 'lucide-react'
+import { Keyboard, Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
@@ -6,6 +6,7 @@ import { useAuth } from '../../app/auth'
 import { PRIORITIES, PRIORITY_LABEL } from '../../lib/types'
 import type { Priority } from '../../lib/types'
 import { Button, Select, Spinner } from '../../ui'
+import { NewTicketDialog } from '../newticket/NewTicketDialog'
 import { TicketPane } from '../ticket/TicketPane'
 import { BulkBar } from './BulkBar'
 import { KEYS, shouldIgnoreKey } from './keys'
@@ -36,6 +37,7 @@ export function InboxPage() {
   const [cursor, setCursor] = useState(0)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [helpOpen, setHelpOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
   const filterRef = useRef<HTMLSelectElement>(null)
 
   const canSelect = can('ticket:bulk')
@@ -88,6 +90,7 @@ export function InboxPage() {
     assignMe: () => can('ticket:assign') && me && apply({ kind: 'assign', value: { id: me.user.id, name: me.user.name } }),
     focusFilter: () => filterRef.current?.focus(),
     reply: () => window.dispatchEvent(new Event('rf:reply')),
+    newTicket: () => can('ticket:create') && setCreating(true),
     showHelp: () => setHelpOpen(true),
   }
   const actionsRef = useRef(actions)
@@ -118,9 +121,16 @@ export function InboxPage() {
         <header className="border-b border-line px-3.5 pb-3 pt-4">
           <div className="mb-3 flex items-center justify-between">
             <h1 className="text-[20px] font-semibold tracking-tight">Inbox</h1>
+            <div className="flex items-center gap-1">
+            {can('ticket:create') && (
+              <Button onClick={() => setCreating(true)}>
+                <Plus size={15} aria-hidden="true" /> New ticket
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setHelpOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" className="!h-8 !w-8 !px-0">
               <Keyboard size={17} aria-hidden="true" />
             </Button>
+            </div>
           </div>
           <div role="tablist" aria-label="Views" className="flex gap-1">
             {VIEWS.map((v) => (
@@ -235,6 +245,15 @@ export function InboxPage() {
       </section>
 
       {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
+      {creating && (
+        <NewTicketDialog
+          onClose={() => setCreating(false)}
+          onCreated={(t) => {
+            setCreating(false)
+            navigate({ pathname: `/inbox/${t.id}`, search: search.toString() })
+          }}
+        />
+      )}
     </div>
   )
 }

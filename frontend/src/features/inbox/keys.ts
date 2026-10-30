@@ -6,6 +6,7 @@ export interface KeyActions {
   assignMe: () => void
   focusFilter: () => void
   reply: () => void
+  newTicket: () => void
   showHelp: () => void
 }
 
@@ -25,6 +26,7 @@ export const KEYS: KeyBinding[] = [
   { key: 'e', label: 'e', description: 'Mark as resolved', run: (a) => a.resolve() },
   { key: 'a', label: 'a', description: 'Assign to me', run: (a) => a.assignMe() },
   { key: 'r', label: 'r', description: 'Reply to the open ticket', run: (a) => a.reply() },
+  { key: 'c', label: 'c', description: 'Create a new ticket', run: (a) => a.newTicket() },
   { key: 'f', label: 'f', description: 'Filter by priority', run: (a) => a.focusFilter() },
   { key: '?', label: '?', description: 'Show keyboard shortcuts', run: (a) => a.showHelp() },
 ]
