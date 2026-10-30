@@ -1,6 +1,6 @@
 # ResolveFlow — Design Document
 
-Date: 2026-10-30 · Version: v0.3 (your 24 answers folded in) · Status: **awaiting approval**. Nothing is built until approved.
+Date: 2026-10-30 · Version: v1.0 · Status: **APPROVED by user 2026-10-30**. Next step: implementation plan (superpowers:writing-plans).
 Companion: `docs/PRD.md`. Choices you made are marked **(decided)**. Everything else is **my call** and open to veto.
 
 ## 1. Intent
